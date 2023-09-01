@@ -172,7 +172,9 @@ class _IntegerEnum(stem.util.enum.Enum):
       elif len(entry) == 3:
         enum, str_val, int_val = entry  # type: ignore
       else:
-        raise ValueError('IntegerEnums can only be constructed with two or three value tuples: %s' % repr(entry))
+        raise ValueError(
+            f'IntegerEnums can only be constructed with two or three value tuples: {repr(entry)}'
+        )
 
       self._enum_to_int[str_val] = int_val
       self._int_to_enum[int_val] = str_val
@@ -191,7 +193,7 @@ class _IntegerEnum(stem.util.enum.Enum):
     elif val in self:
       return val, self._enum_to_int.get(val, val)
     else:
-      raise ValueError("Invalid enumeration '%s', options are %s" % (val, ', '.join(self)))
+      raise ValueError(f"Invalid enumeration '{val}', options are {', '.join(self)}")
 
 
 AddrType = _IntegerEnum(
@@ -275,8 +277,8 @@ class LinkProtocol(int):
     from a range that's determined by our link protocol.
   """
 
-  def __new__(self, version: int) -> 'stem.client.datatype.LinkProtocol':
-    return int.__new__(self, version)  # type: ignore
+  def __new__(cls, version: int) -> 'stem.client.datatype.LinkProtocol':
+    return int.__new__(cls, version)
 
   def __init__(self, version: int) -> None:
     self.version = version
@@ -339,7 +341,8 @@ class Field(object):
     unpacked, remainder = cls.pop(packed)
 
     if remainder:
-      raise ValueError('%s is the wrong size for a %s field' % (repr(packed), cls.__name__))
+      raise ValueError(
+          f'{repr(packed)} is the wrong size for a {cls.__name__} field')
 
     return unpacked
 
@@ -398,7 +401,8 @@ class Size(Field):
       return content.to_bytes(self.size, 'big')
     except:
       if not isinstance(content, int):
-        raise ValueError('Size.pack encodes an integer, but was a %s' % type(content).__name__)
+        raise ValueError(
+            f'Size.pack encodes an integer, but was a {type(content).__name__}')
       elif content < 0:
         raise ValueError('Packed values must be positive (attempted to pack %i as a %s)' % (content, self.name))
       else:
@@ -406,7 +410,7 @@ class Size(Field):
 
   def unpack(self, packed: bytes) -> int:  # type: ignore
     if self.size != len(packed):
-      raise ValueError('%s is the wrong size for a %s field' % (repr(packed), self.name))
+      raise ValueError(f'{repr(packed)} is the wrong size for a {self.name} field')
 
     return int.from_bytes(packed, 'big')
 
@@ -436,7 +440,9 @@ class Address(Field):
       elif stem.util.connection.is_valid_ipv6_address(value):  # type: ignore
         addr_type = AddrType.IPv6
       else:
-        raise ValueError("'%s' isn't an IPv4 or IPv6 address" % stem.util.str_tools._to_unicode(value))
+        raise ValueError(
+            f"'{stem.util.str_tools._to_unicode(value)}' isn't an IPv4 or IPv6 address"
+        )
 
     value_bytes = stem.util.str_tools._to_bytes(value)
 
@@ -451,7 +457,9 @@ class Address(Field):
         self.value_bin = b''.join([Size.CHAR.pack(int(v)) for v in value_bytes.split(b'.')])
       else:
         if len(value_bytes) != 4:
-          raise ValueError('Packed IPv4 addresses should be four bytes, but was: %s' % repr(value))
+          raise ValueError(
+              f'Packed IPv4 addresses should be four bytes, but was: {repr(value)}'
+          )
 
         self.value = _unpack_ipv4_address(value_bytes)
         self.value_bin = value_bytes
@@ -461,7 +469,9 @@ class Address(Field):
         self.value_bin = b''.join([Size.SHORT.pack(int(v, 16)) for v in self.value.split(':')])
       else:
         if len(value_bytes) != 16:
-          raise ValueError('Packed IPv6 addresses should be sixteen bytes, but was: %s' % repr(value))
+          raise ValueError(
+              f'Packed IPv6 addresses should be sixteen bytes, but was: {repr(value)}'
+          )
 
         self.value = _unpack_ipv6_address(value_bytes)
         self.value_bin = value_bytes

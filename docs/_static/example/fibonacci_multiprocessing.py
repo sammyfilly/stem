@@ -3,10 +3,7 @@ import time
 
 
 def fibonacci(n):
-  if n < 2:
-    return n
-  else:
-    return fibonacci(n - 2) + fibonacci(n - 1)
+  return n if n < 2 else fibonacci(n - 2) + fibonacci(n - 1)
 
 
 def main():
@@ -14,9 +11,9 @@ def main():
 
   start_time, threads = time.time(), []
 
-  for i in range(4):
-    threads.append(stem.util.system.DaemonTask(fibonacci, (35,), start = True))
-
+  threads.extend(
+      stem.util.system.DaemonTask(fibonacci, (35, ), start=True)
+      for _ in range(4))
   for t in threads:
     t.join()
 

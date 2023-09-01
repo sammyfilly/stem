@@ -90,15 +90,10 @@ def is_available() -> bool:
 
   if platform.system() != 'Linux':
     return False
-  else:
-    # list of process independent proc paths we use
-    proc_paths = ('/proc/stat', '/proc/meminfo', '/proc/net/tcp', '/proc/net/udp')
+  # list of process independent proc paths we use
+  proc_paths = ('/proc/stat', '/proc/meminfo', '/proc/net/tcp', '/proc/net/udp')
 
-    for path in proc_paths:
-      if not os.path.exists(path):
-        return False
-
-    return True
+  return all(os.path.exists(path) for path in proc_paths)
 
 
 @functools.lru_cache()
@@ -119,7 +114,7 @@ def system_start_time() -> float:
     _log_runtime(parameter, '/proc/stat[btime]', start_time)
     return result
   except:
-    exc = OSError('unable to parse the /proc/stat btime entry: %s' % btime_line)
+    exc = OSError(f'unable to parse the /proc/stat btime entry: {btime_line}')
     _log_failure(parameter, exc)
     raise exc
 
@@ -142,7 +137,8 @@ def physical_memory() -> int:
     _log_runtime(parameter, '/proc/meminfo[MemTotal]', start_time)
     return result
   except:
-    exc = OSError('unable to parse the /proc/meminfo MemTotal entry: %s' % mem_total_line)
+    exc = OSError(
+        f'unable to parse the /proc/meminfo MemTotal entry: {mem_total_line}')
     _log_failure(parameter, exc)
     raise exc
 
@@ -159,7 +155,7 @@ def cwd(pid: int) -> str:
   """
 
   start_time, parameter = time.time(), 'cwd'
-  proc_cwd_link = '/proc/%s/cwd' % pid
+  proc_cwd_link = f'/proc/{pid}/cwd'
 
   if pid == 0:
     cwd = ''
@@ -167,7 +163,7 @@ def cwd(pid: int) -> str:
     try:
       cwd = os.readlink(proc_cwd_link)
     except OSError:
-      exc = OSError('unable to read %s' % proc_cwd_link)
+      exc = OSError(f'unable to read {proc_cwd_link}')
       _log_failure(parameter, exc)
       raise exc
 
@@ -187,15 +183,15 @@ def uid(pid: int) -> int:
   """
 
   start_time, parameter = time.time(), 'uid'
-  status_path = '/proc/%s/status' % pid
+  status_path = f'/proc/{pid}/status'
   uid_line = _get_line(status_path, 'Uid:', parameter)
 
   try:
     result = int(uid_line.split()[1])
-    _log_runtime(parameter, '%s[Uid]' % status_path, start_time)
+    _log_runtime(parameter, f'{status_path}[Uid]', start_time)
     return result
   except:
-    exc = OSError('unable to parse the %s Uid entry: %s' % (status_path, uid_line))
+    exc = OSError(f'unable to parse the {status_path} Uid entry: {uid_line}')
     _log_failure(parameter, exc)
     raise exc
 
@@ -218,17 +214,19 @@ def memory_usage(pid: int) -> Tuple[int, int]:
     return (0, 0)
 
   start_time, parameter = time.time(), 'memory usage'
-  status_path = '/proc/%s/status' % pid
+  status_path = f'/proc/{pid}/status'
   mem_lines = _get_lines(status_path, ('VmRSS:', 'VmSize:'), parameter)
 
   try:
     residentSize = int(mem_lines['VmRSS:'].split()[1]) * 1024
     virtualSize = int(mem_lines['VmSize:'].split()[1]) * 1024
 
-    _log_runtime(parameter, '%s[VmRSS|VmSize]' % status_path, start_time)
+    _log_runtime(parameter, f'{status_path}[VmRSS|VmSize]', start_time)
     return (residentSize, virtualSize)
   except:
-    exc = OSError('unable to parse the %s VmRSS and VmSize entries: %s' % (status_path, ', '.join(mem_lines)))
+    exc = OSError(
+        f"unable to parse the {status_path} VmRSS and VmSize entries: {', '.join(mem_lines)}"
+    )
     _log_failure(parameter, exc)
     raise exc
 
@@ -249,11 +247,11 @@ def stats(pid: int, *stat_types: 'stem.util.proc.Stat') -> Sequence[str]:
   if CLOCK_TICKS is None:
     raise OSError('Unable to look up SC_CLK_TCK')
 
-  start_time, parameter = time.time(), 'process %s' % ', '.join(stat_types)
+  start_time, parameter = time.time(), f"process {', '.join(stat_types)}"
 
   # the stat file contains a single line, of the form...
   # 8438 (tor) S 8407 8438 8407 34818 8438 4202496...
-  stat_path = '/proc/%s/stat' % pid
+  stat_path = f'/proc/{pid}/stat'
   stat_line = _get_line(stat_path, str(pid), parameter)
 
   # breaks line into component values
@@ -261,12 +259,11 @@ def stats(pid: int, *stat_types: 'stem.util.proc.Stat') -> Sequence[str]:
   cmd_start, cmd_end = stat_line.find('('), stat_line.find(')')
 
   if cmd_start != -1 and cmd_end != -1:
-    stat_comp.append(stat_line[:cmd_start])
-    stat_comp.append(stat_line[cmd_start + 1:cmd_end])
+    stat_comp.extend((stat_line[:cmd_start], stat_line[cmd_start + 1:cmd_end]))
     stat_comp += stat_line[cmd_end + 1:].split()
 
   if len(stat_comp) < 44 and _is_float(stat_comp[13], stat_comp[14], stat_comp[21]):
-    exc = OSError('stat file had an unexpected format: %s' % stat_path)
+    exc = OSError(f'stat file had an unexpected format: {stat_path}')
     _log_failure(parameter, exc)
     raise exc
 
@@ -316,17 +313,17 @@ def file_descriptors_used(pid: int) -> int:
   """
 
   try:
-    pid = int(pid)
+    pid = pid
 
     if pid < 0:
-      raise OSError("Process pids can't be negative: %s" % pid)
+      raise OSError(f"Process pids can't be negative: {pid}")
   except (ValueError, TypeError):
-    raise OSError('Process pid was non-numeric: %s' % pid)
+    raise OSError(f'Process pid was non-numeric: {pid}')
 
   try:
     return len(os.listdir('/proc/%i/fd' % pid))
   except Exception as exc:
-    raise OSError('Unable to check number of file descriptors used: %s' % exc)
+    raise OSError(f'Unable to check number of file descriptors used: {exc}')
 
 
 def connections(pid: Optional[int] = None, user: Optional[str] = None) -> Sequence['stem.util.connection.Connection']:
@@ -346,17 +343,17 @@ def connections(pid: Optional[int] = None, user: Optional[str] = None) -> Sequen
   start_time, conn = time.time(), []
 
   if pid:
-    parameter = 'connections for pid %s' % pid
+    parameter = f'connections for pid {pid}'
 
     try:
       pid = int(pid)
 
       if pid < 0:
-        raise OSError("Process pids can't be negative: %s" % pid)
+        raise OSError(f"Process pids can't be negative: {pid}")
     except (ValueError, TypeError):
-      raise OSError('Process pid was non-numeric: %s' % pid)
+      raise OSError(f'Process pid was non-numeric: {pid}')
   elif user:
-    parameter = 'connections for user %s' % user
+    parameter = f'connections for user {user}'
   else:
     parameter = 'all connections'
 
@@ -381,13 +378,10 @@ def connections(pid: Optional[int] = None, user: Optional[str] = None) -> Sequen
           for line in proc_file:
             _, l_dst, r_dst, status, _, _, _, uid, _, inode = line.split()[:10]
 
-            if inodes and inode not in inodes:
+            if (inodes and inode not in inodes
+                or process_uid and uid != process_uid
+                or protocol == 'tcp' and status != b'01'):
               continue
-            elif process_uid and uid != process_uid:
-              continue
-            elif protocol == 'tcp' and status != b'01':
-              continue  # skip tcp connections that aren't yet established
-
             div = l_dst.find(b':')
             l_addr = _unpack_addr(l_dst[:div])
             l_port = int(l_dst[div + 1:], 16)
@@ -396,16 +390,14 @@ def connections(pid: Optional[int] = None, user: Optional[str] = None) -> Sequen
             r_addr = _unpack_addr(r_dst[:div])
             r_port = int(r_dst[div + 1:], 16)
 
-            if r_addr == '0.0.0.0' or r_addr == '0000:0000:0000:0000:0000:0000':
+            if (r_addr in ['0.0.0.0', '0000:0000:0000:0000:0000:0000']
+                or l_port == 0 or r_port == 0):
               continue  # no address
-            elif l_port == 0 or r_port == 0:
-              continue  # no port
-
             conn.append(stem.util.connection.Connection(l_addr, l_port, r_addr, r_port, protocol, is_ipv6))
       except OSError as exc:
-        raise OSError("unable to read '%s': %s" % (proc_file_path, exc))
+        raise OSError(f"unable to read '{proc_file_path}': {exc}")
       except Exception as exc:
-        raise OSError("unable to parse '%s': %s" % (proc_file_path, exc))
+        raise OSError(f"unable to parse '{proc_file_path}': {exc}")
 
     _log_runtime(parameter, '/proc/net/[tcp|udp]', start_time)
     return conn
@@ -428,12 +420,12 @@ def _inodes_for_sockets(pid: int) -> Set[bytes]:
   inodes = set()
 
   try:
-    fd_contents = os.listdir('/proc/%s/fd' % pid)
+    fd_contents = os.listdir(f'/proc/{pid}/fd')
   except OSError as exc:
-    raise OSError('Unable to read our file descriptors: %s' % exc)
+    raise OSError(f'Unable to read our file descriptors: {exc}')
 
   for fd in fd_contents:
-    fd_path = '/proc/%s/fd/%s' % (pid, fd)
+    fd_path = f'/proc/{pid}/fd/{fd}'
 
     try:
       # File descriptor link, such as 'socket:[30899]'
@@ -447,7 +439,9 @@ def _inodes_for_sockets(pid: int) -> Set[bytes]:
         continue  # descriptors may shift while we're in the middle of iterating over them
 
       # most likely couldn't be read due to permissions
-      raise OSError('unable to determine file descriptor destination (%s): %s' % (exc, fd_path))
+      raise OSError(
+          f'unable to determine file descriptor destination ({exc}): {fd_path}'
+      )
 
   return inodes
 
@@ -538,15 +532,13 @@ def _get_lines(file_path: str, line_prefixes: Sequence[str], parameter: str) -> 
 
     proc_file.close()
 
-    if remaining_prefixes:
-      if len(remaining_prefixes) == 1:
-        msg = '%s did not contain a %s entry' % (file_path, remaining_prefixes[0])
-      else:
-        msg = '%s did not contain %s entries' % (file_path, ', '.join(remaining_prefixes))
-
-      raise OSError(msg)
-    else:
+    if not remaining_prefixes:
       return results
+    msg = (
+        f'{file_path} did not contain a {remaining_prefixes[0]} entry'
+        if len(remaining_prefixes) == 1 else
+        f"{file_path} did not contain {', '.join(remaining_prefixes)} entries")
+    raise OSError(msg)
   except OSError as exc:
     _log_failure(parameter, exc)
     raise
@@ -573,4 +565,4 @@ def _log_failure(parameter: str, exc: BaseException) -> None:
   :param exc: exception that we're raising
   """
 
-  log.debug('proc call failed (%s): %s' % (parameter, exc))
+  log.debug(f'proc call failed ({parameter}): {exc}')

@@ -7,4 +7,6 @@ with Controller.from_port(port = 9051) as controller:
   print("DuckDuckGo's introduction points are...\n")
 
   for introduction_point in desc.introduction_points():
-    print('  %s:%s => %s' % (introduction_point.address, introduction_point.port, introduction_point.identifier))
+    print(
+        f'  {introduction_point.address}:{introduction_point.port} => {introduction_point.identifier}'
+    )

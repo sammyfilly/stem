@@ -6,6 +6,7 @@
 Caches tor's latest fallback directories.
 """
 
+
 import re
 import sys
 import urllib.request
@@ -21,17 +22,19 @@ if __name__ == '__main__':
     fallback_dir_page = urllib.request.urlopen(GITWEB_FALLBACK_LOG).read()
     fallback_dir_commit = re.search(FALLBACK_DIR_LINK, fallback_dir_page).group(1).decode('utf-8')
   except:
-    print("Unable to determine the latest commit to edit tor's fallback directories: %s" % sys.exc_info()[1])
+    print(
+        f"Unable to determine the latest commit to edit tor's fallback directories: {sys.exc_info()[1]}"
+    )
     sys.exit(1)
 
   try:
     stem_commit = stem.util.system.call('git rev-parse HEAD')[0]
   except OSError as exc:
-    print("Unable to determine stem's current commit: %s" % exc)
+    print(f"Unable to determine stem's current commit: {exc}")
     sys.exit(1)
 
-  print('Latest tor commit editing fallback directories: %s' % fallback_dir_commit)
-  print('Current stem commit: %s' % stem_commit)
+  print(f'Latest tor commit editing fallback directories: {fallback_dir_commit}')
+  print(f'Current stem commit: {stem_commit}')
   print('')
 
   cached_fallback_directories = stem.directory.Fallback.from_cache()

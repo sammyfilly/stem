@@ -135,10 +135,8 @@ def get_module_info():
   cwd = os.path.sep.join(__file__.split(os.path.sep)[:-1])
 
   with open(os.path.join(cwd, 'stem', '__init__.py')) as init_file:
-    for line in init_file.readlines():
-      line_match = STAT_REGEX.match(line)
-
-      if line_match:
+    for line in init_file:
+      if line_match := STAT_REGEX.match(line):
         keyword, value = line_match.groups()
         result[keyword] = value
 

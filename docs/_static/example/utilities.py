@@ -10,7 +10,9 @@ if not resolvers:
   sys.exit(1)
 
 picked_resolver = resolvers[0]  # lets just opt for the first
-print('Our platform supports connection resolution via: %s (picked %s)' % (', '.join(resolvers), picked_resolver))
+print(
+    f"Our platform supports connection resolution via: {', '.join(resolvers)} (picked {picked_resolver})"
+)
 
 tor_pids = pid_by_name('tor', multiple = True)
 
@@ -25,4 +27,6 @@ else:
 print('\nConnections:\n')
 
 for conn in get_connections(picked_resolver, process_pid = tor_pids[0], process_name = 'tor'):
-  print('  %s:%s => %s:%s' % (conn.local_address, conn.local_port, conn.remote_address, conn.remote_port))
+  print(
+      f'  {conn.local_address}:{conn.local_port} => {conn.remote_address}:{conn.remote_port}'
+  )

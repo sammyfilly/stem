@@ -18,7 +18,9 @@ with Controller.from_port() as controller:
   # port 5000 (this is where Flask runs by default).
 
   response = controller.create_ephemeral_hidden_service({80: 5000}, await_publication = True)
-  print(' * Our service is available at %s.onion, press ctrl+c to quit' % response.service_id)
+  print(
+      f' * Our service is available at {response.service_id}.onion, press ctrl+c to quit'
+  )
 
   try:
     app.run()

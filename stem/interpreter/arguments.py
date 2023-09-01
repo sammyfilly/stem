@@ -49,25 +49,21 @@ class Arguments(NamedTuple):
 
       if unrecognized_args:
         error_msg = "aren't recognized arguments" if len(unrecognized_args) > 1 else "isn't a recognized argument"
-        raise getopt.GetoptError("'%s' %s" % ("', '".join(unrecognized_args), error_msg))
+        raise getopt.GetoptError(f"""'{"', '".join(unrecognized_args)}' {error_msg}""")
     except Exception as exc:
-      raise ValueError('%s (for usage provide --help)' % exc)
+      raise ValueError(f'{exc} (for usage provide --help)')
 
     for opt, arg in recognized_args:
       if opt in ('-i', '--interface'):
-        if ':' in arg:
-          address, port = arg.rsplit(':', 1)
-        else:
-          address, port = None, arg
-
+        address, port = arg.rsplit(':', 1) if ':' in arg else (None, arg)
         if address is not None:
           if not stem.util.connection.is_valid_ipv4_address(address):
-            raise ValueError("'%s' isn't a valid IPv4 address" % address)
+            raise ValueError(f"'{address}' isn't a valid IPv4 address")
 
           args['control_address'] = address
 
         if not stem.util.connection.is_valid_port(port):
-          raise ValueError("'%s' isn't a valid port number" % port)
+          raise ValueError(f"'{port}' isn't a valid port number")
 
         args['control_port'] = int(port)
         args['user_provided_port'] = True

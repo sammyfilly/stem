@@ -69,17 +69,11 @@ def log_traceback(sig, frame):
   Dump the stacktraces of all threads on stderr.
   """
 
-  # Attempt to get the name of our signal. Unfortunately the signal module
-  # doesn't provide a reverse mapping, so we need to get this ourselves
-  # from the attributes.
-
-  signal_name = str(sig)
-
-  for attr_name, value in signal.__dict__.items():
-    if attr_name.startswith('SIG') and value == sig:
-      signal_name = attr_name
-      break
-
+  signal_name = next(
+      (attr_name for attr_name, value in signal.__dict__.items()
+       if attr_name.startswith('SIG') and value == sig),
+      str(sig),
+  )
   lines = [
     '',  # initial NL so we start on our own line
     '=' * 80,
@@ -87,11 +81,7 @@ def log_traceback(sig, frame):
   ]
 
   for thread_name, stacktrace in test.output.thread_stacktraces().items():
-    lines.append('-' * 80)
-    lines.append('%s thread stacktrace' % thread_name)
-    lines.append('')
-    lines.append(stacktrace)
-
+    lines.extend(('-' * 80, f'{thread_name} thread stacktrace', '', stacktrace))
   lines.append('=' * 80)
   println('\n'.join(lines), STDERR)
 
@@ -101,9 +91,7 @@ def log_traceback(sig, frame):
     try:
       os.kill(p.pid, sig)
     except OSError as exc:
-      if exc.errno == errno.ESRCH:
-        pass  # already exited, no such process
-      else:
+      if exc.errno != errno.ESRCH:
         raise exc
 
   if sig == signal.SIGABRT:
@@ -146,17 +134,9 @@ def _get_tests(modules, module_prefixes, exclude):
     cropped_name = cropped_name.rsplit('.', 1)[0]  # exclude the class name
 
     if exclude:
-      # Check if '--exclude-test' says we should skip this whole module. The
-      # argument can also skip individual tests, but that must be handled
-      # elsewhere.
-
-      skip = False
-
-      for exclude_prefix in exclude:
-        if cropped_name.startswith(exclude_prefix):
-          skip = True
-          break
-
+      skip = any(
+          cropped_name.startswith(exclude_prefix)
+          for exclude_prefix in exclude)
       if skip:
         continue
 
@@ -171,14 +151,14 @@ def _get_tests(modules, module_prefixes, exclude):
           # single test for this module
 
           test_name = prefix.rsplit('.', 1)[1]
-          yield '%s.%s' % (import_name, test_name)
+          yield f'{import_name}.{test_name}'
           break
 
 
 def main():
   start_time = time.time()
 
-  major_version, minor_version = sys.version_info[0:2]
+  major_version, minor_version = sys.version_info[:2]
 
   if major_version < 3 or (major_version == 3 and minor_version < 6):
     println('stem requires python version 3.6 or greater\n')
@@ -274,7 +254,9 @@ def main():
       test_classes = [v for k, v in module.__dict__.items() if k.startswith('Test')]
 
       if len(test_classes) != 1:
-        print('BUG: Detected multiple tests for %s: %s' % (module_str, ', '.join(test_classes)))
+        print(
+            f"BUG: Detected multiple tests for {module_str}: {', '.join(test_classes)}"
+        )
         sys.exit(1)
 
       test_classes[0].run_tests(async_args)
@@ -333,7 +315,7 @@ def main():
     println('Threads lingering after test run:', ERROR)
 
     for lingering_thread in active_threads:
-      println('  %s' % lingering_thread, ERROR)
+      println(f'  {lingering_thread}', ERROR)
 
   static_check_issues = {}
 
@@ -354,7 +336,7 @@ def main():
     println('TESTING FAILED (%i seconds)' % (time.time() - start_time), ERROR, STDERR)
 
     for line in error_tracker:
-      println('  %s' % line, ERROR, STDERR)
+      println(f'  {line}', ERROR, STDERR)
 
     error_modules = error_tracker.get_modules()
 
@@ -362,46 +344,49 @@ def main():
       println('\nYou can re-run just these tests with:\n', ERROR, STDERR)
 
       for module in error_modules:
-        println('  %s --test %s' % (' '.join(sys.argv), test.arguments.crop_module_name(module)), ERROR, STDERR)
+        println(
+            f"  {' '.join(sys.argv)} --test {test.arguments.crop_module_name(module)}",
+            ERROR,
+            STDERR,
+        )
   else:
     if skipped_tests > 0:
       println('%i TESTS WERE SKIPPED' % skipped_tests, STATUS)
 
     println('TESTING PASSED (%i seconds)\n' % (time.time() - start_time), SUCCESS)
 
-  new_capabilities = test.get_new_capabilities()
-
-  if new_capabilities:
+  if new_capabilities := test.get_new_capabilities():
     println(NEW_CAPABILITIES_FOUND, ERROR)
 
     for capability_type, msg in sorted(new_capabilities, key = lambda x: x[1]):
-      println('  [%s] %s' % (capability_type, msg), ERROR)
+      println(f'  [{capability_type}] {msg}', ERROR)
 
   sys.exit(1 if error_tracker.has_errors_occured() else 0)
 
 
 def _print_static_issues(static_check_issues):
-  if static_check_issues:
-    println('STATIC CHECKS', STATUS)
+  if not static_check_issues:
+    return
+  println('STATIC CHECKS', STATUS)
 
-    for file_path in sorted(static_check_issues):
-      println('* %s' % file_path, STATUS)
+  for file_path in sorted(static_check_issues):
+    println(f'* {file_path}', STATUS)
 
-      # Make a dict of line numbers to its issues. This is so we can both sort
-      # by the line number and clear any duplicate messages.
+    # Make a dict of line numbers to its issues. This is so we can both sort
+    # by the line number and clear any duplicate messages.
 
-      line_to_issues = {}
+    line_to_issues = {}
 
-      for issue in static_check_issues[file_path]:
-        line_to_issues.setdefault(issue.line_number, set()).add((issue.message, issue.line))
+    for issue in static_check_issues[file_path]:
+      line_to_issues.setdefault(issue.line_number, set()).add((issue.message, issue.line))
 
-      for line_number in sorted(line_to_issues.keys()):
-        for msg, line in line_to_issues[line_number]:
-          line_count = '%-4s' % line_number
-          content = ' | %s' % line.strip() if line.strip() else ''
-          println('  line %s - %-40s%s' % (line_count, msg, content))
+    for line_number in sorted(line_to_issues.keys()):
+      for msg, line in line_to_issues[line_number]:
+        line_count = '%-4s' % line_number
+        content = f' | {line.strip()}' if line.strip() else ''
+        println('  line %s - %-40s%s' % (line_count, msg, content))
 
-      println()
+    println()
 
 
 def _run_test(args, test_class, exclude, output_filters):
@@ -409,7 +394,7 @@ def _run_test(args, test_class, exclude, output_filters):
   # logs with the test that generated them.
 
   if args.logging_path:
-    stem.util.log.notice('Beginning test %s' % test_class)
+    stem.util.log.notice(f'Beginning test {test_class}')
 
   start_time = time.time()
 
@@ -434,12 +419,11 @@ def _run_test(args, test_class, exclude, output_filters):
   try:
     suite = unittest.TestLoader().loadTestsFromName(test_class)
   except AttributeError:
-    if args.specific_test:
-      # should only come up if user provided '--test' for something that doesn't exist
-      println(' no such test', ERROR)
-      return None
-    else:
+    if not args.specific_test:
       raise
+    # should only come up if user provided '--test' for something that doesn't exist
+    println(' no such test', ERROR)
+    return None
   except Exception as exc:
     println(' failed', ERROR)
     traceback.print_exc(exc)
@@ -464,17 +448,16 @@ def _run_test(args, test_class, exclude, output_filters):
     println(test.output.apply_filters(test_results.getvalue(), *output_filters))
   elif not run_result.failures and not run_result.errors:
     println(' success (%0.2fs)' % (time.time() - start_time), SUCCESS)
+  elif args.quiet:
+    println(test_label, STATUS, NO_NL, STDERR)
+    println(' failed (%0.2fs)' % (time.time() - start_time), ERROR, STDERR)
+    println(test.output.apply_filters(test_results.getvalue(), *output_filters), STDERR)
   else:
-    if args.quiet:
-      println(test_label, STATUS, NO_NL, STDERR)
-      println(' failed (%0.2fs)' % (time.time() - start_time), ERROR, STDERR)
-      println(test.output.apply_filters(test_results.getvalue(), *output_filters), STDERR)
-    else:
-      println(' failed (%0.2fs)' % (time.time() - start_time), ERROR)
-      println(test.output.apply_filters(test_results.getvalue(), *output_filters), NO_NL)
+    println(' failed (%0.2fs)' % (time.time() - start_time), ERROR)
+    println(test.output.apply_filters(test_results.getvalue(), *output_filters), NO_NL)
 
   if args.logging_path:
-    stem.util.log.notice('Finished test %s' % test_class)
+    stem.util.log.notice(f'Finished test {test_class}')
 
   return run_result
 

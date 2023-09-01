@@ -2,6 +2,6 @@ import stem.descriptor.remote
 
 try:
   for desc in stem.descriptor.remote.get_consensus():
-    print('found relay %s (%s)' % (desc.nickname, desc.fingerprint))
+    print(f'found relay {desc.nickname} ({desc.fingerprint})')
 except Exception as exc:
-  print('Unable to retrieve the consensus: %s' % exc)
+  print(f'Unable to retrieve the consensus: {exc}')

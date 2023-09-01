@@ -6,16 +6,16 @@ import test
 
 class TestInstallation(unittest.TestCase):
   @classmethod
-  def setUpClass(self):
+  def setUpClass(cls):
     setup_path = os.path.join(test.STEM_BASE, 'setup.py')
-    self.skip_reason = None
-    self.setup_contents = False
+    cls.skip_reason = None
+    cls.setup_contents = False
 
     if os.path.exists(setup_path):
       with open(setup_path) as setup_file:
-        self.setup_contents = setup_file.read()
+        cls.setup_contents = setup_file.read()
     else:
-      self.skip_reason = '(only for git checkout)'
+      cls.skip_reason = '(only for git checkout)'
 
   def test_installs_all_data_files(self):
     if self.skip_reason:
@@ -40,12 +40,12 @@ class TestInstallation(unittest.TestCase):
     data_files = []
 
     for module, files in package_data.items():
-      for module_file in files:
-        data_files.append(os.path.join(test.STEM_BASE, module.replace('.', os.path.sep), module_file))
-
+      data_files.extend(
+          os.path.join(test.STEM_BASE, module.replace('.', os.path.sep),
+                       module_file) for module_file in files)
     for path in data_files:
       if not os.path.exists(path):
-        self.fail("setup.py installs a data file that doesn't exist: %s" % path)
+        self.fail(f"setup.py installs a data file that doesn't exist: {path}")
 
     for entry in os.walk(os.path.join(test.STEM_BASE, 'stem')):
       directory = entry[0]
@@ -60,4 +60,4 @@ class TestInstallation(unittest.TestCase):
         if file_type in (['py'] + test.IGNORED_FILE_TYPES):
           continue
         elif path not in data_files:
-          self.fail("setup.py doesn't install %s" % path)
+          self.fail(f"setup.py doesn't install {path}")

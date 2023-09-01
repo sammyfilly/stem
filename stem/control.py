@@ -511,10 +511,10 @@ def with_default(yields: bool = False) -> Callable:
 
           if default == UNDEFINED:
             raise
-          else:
-            if default is not None:
-              for val in default:
-                yield val
+          if default is not None:
+            for val in default:
+              yield val
+
     elif not yields:
       @functools.wraps(func)
       def wrapped(self, *args: Any, **kwargs: Any) -> Any:
@@ -531,17 +531,14 @@ def with_default(yields: bool = False) -> Callable:
       @functools.wraps(func)
       def wrapped(self, *args: Any, **kwargs: Any) -> Any:
         try:
-          for val in func(self, *args, **kwargs):
-            yield val
+          yield from func(self, *args, **kwargs)
         except:
           default = get_default(func, args, kwargs)
 
           if default == UNDEFINED:
             raise
-          else:
-            if default is not None:
-              for val in default:
-                yield val
+          if default is not None:
+            yield from default
 
     return wrapped
 
@@ -568,7 +565,9 @@ def event_description(event: str) -> str:
       config.load(config_path)
       EVENT_DESCRIPTIONS = dict([(key.lower()[18:], config.get_value(key)) for key in config.keys() if key.startswith('event.description.')])  # type: ignore
     except Exception as exc:
-      log.warn("BUG: stem failed to load its internal manual information from '%s': %s" % (config_path, exc))
+      log.warn(
+          f"BUG: stem failed to load its internal manual information from '{config_path}': {exc}"
+      )
       return None
 
   return EVENT_DESCRIPTIONS.get(event.lower())
@@ -683,11 +682,11 @@ class BaseController(Synchronous):
           if isinstance(response, stem.SocketClosed):
             pass  # this is fine
           elif isinstance(response, stem.ProtocolError):
-            log.info('Tor provided a malformed message (%s)' % response)
+            log.info(f'Tor provided a malformed message ({response})')
           elif isinstance(response, stem.ControllerError):
-            log.info('Socket experienced a problem (%s)' % response)
+            log.info(f'Socket experienced a problem ({response})')
           elif isinstance(response, stem.response.ControlMessage):
-            log.info('Failed to deliver a response: %s' % response)
+            log.info(f'Failed to deliver a response: {response}')
         except asyncio.QueueEmpty:
           # the empty() method is documented to not be fully reliable so this
           # isn't entirely surprising
@@ -963,7 +962,9 @@ class BaseController(Synchronous):
           if spawn:
             args = (self, state, change_timestamp)
 
-            notice_thread = threading.Thread(target = listener, args = args, name = '%s notification' % state)
+            notice_thread = threading.Thread(target=listener,
+                                             args=args,
+                                             name=f'{state} notification')
             notice_thread.daemon = True
             notice_thread.start()
             self._state_change_threads.append(notice_thread)
@@ -1075,9 +1076,9 @@ class Controller(BaseController):
     import stem.connection
 
     if not stem.util.connection.is_valid_ipv4_address(address) and not stem.util.connection.is_valid_ipv6_address(address):
-      raise ValueError('Invalid IP address: %s' % address)
+      raise ValueError(f'Invalid IP address: {address}')
     elif port != 'default' and not stem.util.connection.is_valid_port(port):
-      raise ValueError('Invalid port: %s' % port)
+      raise ValueError(f'Invalid port: {port}')
 
     if port == 'default':
       control_port = stem.connection._connection_for_default_port(address)
@@ -1125,8 +1126,8 @@ class Controller(BaseController):
 
     def _confchanged_listener(event: stem.response.events.ConfChangedEvent) -> None:
       if self.is_caching_enabled():
-        to_cache_changed = dict((k.lower(), v) for k, v in event.changed.items())
-        to_cache_unset = dict((k.lower(), []) for k in event.unset)  # type: Dict[str, List[str]] # [] represents None value in cache
+        to_cache_changed = {k.lower(): v for k, v in event.changed.items()}
+        to_cache_unset = {k.lower(): [] for k in event.unset}
 
         to_cache = {}
         to_cache.update(to_cache_changed)
@@ -1434,14 +1435,17 @@ class Controller(BaseController):
 
     if listeners is None:
       proxy_addrs = []
-      query = 'net/listeners/%s' % str(listener_type).lower()
+      query = f'net/listeners/{str(listener_type).lower()}'
 
       try:
         for listener in (await self.get_info(query)).split():
           if not (listener.startswith('"') and listener.endswith('"')):
-            raise stem.ProtocolError("'GETINFO %s' responses are expected to be quoted: %s" % (query, listener))
+            raise stem.ProtocolError(
+                f"'GETINFO {query}' responses are expected to be quoted: {listener}"
+            )
           elif ':' not in listener:
-            raise stem.ProtocolError("'GETINFO %s' had a listener without a colon: %s" % (query, listener))
+            raise stem.ProtocolError(
+                f"'GETINFO {query}' had a listener without a colon: {listener}")
 
           listener = listener[1:-1]  # strip quotes
           addr, port = listener.rsplit(':', 1)
@@ -1501,9 +1505,11 @@ class Controller(BaseController):
 
       for addr, port in proxy_addrs:
         if not stem.util.connection.is_valid_ipv4_address(addr) and not stem.util.connection.is_valid_ipv6_address(addr):
-          raise stem.ProtocolError('Invalid address for a %s listener: %s' % (listener_type, addr))
+          raise stem.ProtocolError(
+              f'Invalid address for a {listener_type} listener: {addr}')
         elif not stem.util.connection.is_valid_port(port):
-          raise stem.ProtocolError('Invalid port for a %s listener: %s' % (listener_type, port))
+          raise stem.ProtocolError(
+              f'Invalid port for a {listener_type} listener: {port}')
 
       listeners = [(addr, int(port)) for (addr, port) in proxy_addrs]
       self._set_cache({listener_type: listeners}, 'listeners')
@@ -1608,11 +1614,10 @@ class Controller(BaseController):
       if pid:
         user = stem.util.system.user(pid)
 
-    if user:
-      self._set_cache({'user': user})
-      return user
-    else:
+    if not user:
       raise ValueError("Unable to resolve tor's user" if self.is_localhost() else "Tor isn't running locally")
+    self._set_cache({'user': user})
+    return user
 
   @with_default()
   async def get_pid(self, default: Any = UNDEFINED) -> int:
@@ -1664,11 +1669,10 @@ class Controller(BaseController):
         elif isinstance(control_socket, stem.socket.ControlSocketFile):
           pid = stem.util.system.pid_by_open_file(control_socket.path)
 
-    if pid:
-      self._set_cache({'pid': pid})
-      return pid
-    else:
+    if not pid:
       raise ValueError("Unable to resolve tor's pid" if self.is_localhost() else "Tor isn't running locally")
+    self._set_cache({'pid': pid})
+    return pid
 
   @with_default()
   async def get_start_time(self, default: Any = UNDEFINED) -> float:
@@ -1696,7 +1700,9 @@ class Controller(BaseController):
 
     if uptime:
       if not uptime.isdigit():
-        raise ValueError("'GETINFO uptime' did not provide a valid numeric response: %s" % uptime)
+        raise ValueError(
+            f"'GETINFO uptime' did not provide a valid numeric response: {uptime}"
+        )
 
       start_time = time.time() - float(uptime)
 
@@ -1714,11 +1720,10 @@ class Controller(BaseController):
 
       start_time = stem.util.system.start_time(pid)
 
-    if start_time:
-      self._set_cache({'start_time': start_time})
-      return start_time
-    else:
+    if not start_time:
       raise ValueError("Unable to resolve when tor began" if self.is_localhost() else "Tor isn't running locally")
+    self._set_cache({'start_time': start_time})
+    return start_time
 
   @with_default()
   async def get_uptime(self, default: Any = UNDEFINED) -> float:
@@ -1816,20 +1821,21 @@ class Controller(BaseController):
       try:
         relay = await self.get_info('fingerprint')
       except stem.ControllerError as exc:
-        raise stem.ControllerError('Unable to determine our own fingerprint: %s' % exc)
+        raise stem.ControllerError(f'Unable to determine our own fingerprint: {exc}')
 
     if stem.util.tor_tools.is_valid_fingerprint(relay):
-      query = 'md/id/%s' % relay
+      query = f'md/id/{relay}'
     elif stem.util.tor_tools.is_valid_nickname(relay):
-      query = 'md/name/%s' % relay
+      query = f'md/name/{relay}'
     else:
-      raise ValueError("'%s' isn't a valid fingerprint or nickname" % relay)
+      raise ValueError(f"'{relay}' isn't a valid fingerprint or nickname")
 
     try:
       desc_content = await self.get_info(query, get_bytes = True)
     except stem.InvalidArguments as exc:
       if str(exc).startswith('GETINFO request contained unrecognized keywords:'):
-        raise stem.DescriptorUnavailable("Tor was unable to provide the descriptor for '%s'" % relay)
+        raise stem.DescriptorUnavailable(
+            f"Tor was unable to provide the descriptor for '{relay}'")
       else:
         raise
 
@@ -1910,20 +1916,21 @@ class Controller(BaseController):
       try:
         relay = await self.get_info('fingerprint')
       except stem.ControllerError as exc:
-        raise stem.ControllerError('Unable to determine our own fingerprint: %s' % exc)
+        raise stem.ControllerError(f'Unable to determine our own fingerprint: {exc}')
 
     if stem.util.tor_tools.is_valid_fingerprint(relay):
-      query = 'desc/id/%s' % relay
+      query = f'desc/id/{relay}'
     elif stem.util.tor_tools.is_valid_nickname(relay):
-      query = 'desc/name/%s' % relay
+      query = f'desc/name/{relay}'
     else:
-      raise ValueError("'%s' isn't a valid fingerprint or nickname" % relay)
+      raise ValueError(f"'{relay}' isn't a valid fingerprint or nickname")
 
     try:
       desc_content = await self.get_info(query, get_bytes = True)
     except stem.InvalidArguments as exc:
       if str(exc).startswith('GETINFO request contained unrecognized keywords:'):
-        raise stem.DescriptorUnavailable("Tor was unable to provide the descriptor for '%s'" % relay)
+        raise stem.DescriptorUnavailable(
+            f"Tor was unable to provide the descriptor for '{relay}'")
       else:
         raise
 
@@ -2005,20 +2012,21 @@ class Controller(BaseController):
       try:
         relay = await self.get_info('fingerprint')
       except stem.ControllerError as exc:
-        raise stem.ControllerError('Unable to determine our own fingerprint: %s' % exc)
+        raise stem.ControllerError(f'Unable to determine our own fingerprint: {exc}')
 
     if stem.util.tor_tools.is_valid_fingerprint(relay):
-      query = 'ns/id/%s' % relay
+      query = f'ns/id/{relay}'
     elif stem.util.tor_tools.is_valid_nickname(relay):
-      query = 'ns/name/%s' % relay
+      query = f'ns/name/{relay}'
     else:
-      raise ValueError("'%s' isn't a valid fingerprint or nickname" % relay)
+      raise ValueError(f"'{relay}' isn't a valid fingerprint or nickname")
 
     try:
       desc_content = await self.get_info(query, get_bytes = True)
     except stem.InvalidArguments as exc:
       if str(exc).startswith('GETINFO request contained unrecognized keywords:'):
-        raise stem.DescriptorUnavailable("Tor was unable to provide the descriptor for '%s'" % relay)
+        raise stem.DescriptorUnavailable(
+            f"Tor was unable to provide the descriptor for '{relay}'")
       else:
         raise
 
@@ -2102,11 +2110,9 @@ class Controller(BaseController):
       An exception is only raised if we weren't provided a default response.
     """
 
-    if address.endswith('.onion'):
-      address = address[:-6]
-
+    address = address.removesuffix('.onion')
     if not stem.util.tor_tools.is_valid_hidden_service_address(address):
-      raise ValueError("'%s.onion' isn't a valid hidden service address" % address)
+      raise ValueError(f"'{address}.onion' isn't a valid hidden service address")
 
     hs_desc_queue = asyncio.Queue()  # type: asyncio.Queue[stem.response.events.Event]
     hs_desc_listener = None
@@ -2129,36 +2135,38 @@ class Controller(BaseController):
       )
 
     try:
-      request = 'HSFETCH %s' % address
+      request = f'HSFETCH {address}'
 
       if servers:
-        request += ' ' + ' '.join(['SERVER=%s' % s for s in servers])
+        request += ' ' + ' '.join([f'SERVER={s}' for s in servers])
 
       response = stem.response._convert_to_single_line(await self.msg(request))
 
       if not response.is_ok():
-        raise stem.ProtocolError('HSFETCH returned unexpected response code: %s' % response.code)
+        raise stem.ProtocolError(
+            f'HSFETCH returned unexpected response code: {response.code}')
 
       if not await_result:
         return None  # not waiting, so nothing to provide back
-      else:
-        while True:
-          event = await _get_with_timeout(hs_desc_content_queue, timeout, start_time)
+      while True:
+        event = await _get_with_timeout(hs_desc_content_queue, timeout, start_time)
 
-          if event.address == address:
-            if event.descriptor:
-              return event.descriptor
-            else:
+        if event.address == address:
+          if event.descriptor:
+            return event.descriptor
               # no descriptor, looking through HS_DESC to figure out why
 
-              while True:
-                event = await _get_with_timeout(hs_desc_queue, timeout, start_time)
+          while True:
+            event = await _get_with_timeout(hs_desc_queue, timeout, start_time)
 
-                if event.address == address and event.action == stem.HSDescAction.FAILED:
-                  if event.reason == stem.HSDescReason.NOT_FOUND:
-                    raise stem.DescriptorUnavailable('No running hidden service at %s.onion' % address)
-                  else:
-                    raise stem.DescriptorUnavailable('Unable to retrieve the descriptor for %s.onion (retrieved from %s): %s' % (address, event.directory_fingerprint, event.reason))
+            if event.address == address and event.action == stem.HSDescAction.FAILED:
+              if event.reason == stem.HSDescReason.NOT_FOUND:
+                raise stem.DescriptorUnavailable(
+                    f'No running hidden service at {address}.onion')
+              else:
+                raise stem.DescriptorUnavailable(
+                    f'Unable to retrieve the descriptor for {address}.onion (retrieved from {event.directory_fingerprint}): {event.reason}'
+                )
     finally:
       awaitable_removals = []
 
@@ -2489,20 +2497,18 @@ class Controller(BaseController):
     # constructs the SETCONF or RESETCONF query
     query_comp = ['RESETCONF' if reset else 'SETCONF']
 
-    if isinstance(params, dict):
-      params_list = list(params.items())
-    else:
-      params_list = params  # type: ignore # type: Sequence[Tuple[str, Union[str, Sequence[str]]]]
-
+    params_list = list(params.items()) if isinstance(params, dict) else params
     for param, value in params_list:
       if isinstance(value, str):
-        query_comp.append('%s="%s"' % (param, value.strip()))
+        query_comp.append(f'{param}="{value.strip()}"')
       elif isinstance(value, collections.abc.Iterable):
-        query_comp.extend(['%s="%s"' % (param, val.strip()) for val in value])
+        query_comp.extend([f'{param}="{val.strip()}"' for val in value])
       elif not value:
         query_comp.append(param)
       else:
-        raise ValueError('Cannot set %s to %s since the value was a %s but we only accept strings' % (param, value, type(value).__name__))
+        raise ValueError(
+            f'Cannot set {param} to {value} since the value was a {type(value).__name__} but we only accept strings'
+        )
 
     query = ' '.join(query_comp)
     response = stem.response._convert_to_single_line(await self.msg(query))
@@ -2512,15 +2518,22 @@ class Controller(BaseController):
 
       if self.is_caching_enabled():
         # clear cache for params; the CONF_CHANGED event will set cache for changes
-        to_cache = dict((k.lower(), None) for k, v in params_list)
+        to_cache = {k.lower(): None for k, v in params_list}
         self._set_cache(to_cache, 'getconf')
         self._confchanged_cache_invalidation(dict(params_list))
     else:
-      log.debug('%s (failed, code: %s, message: %s)' % (query, response.code, response.message))
-      immutable_params = [k for k, v in params_list if stem.util.str_tools._to_unicode(k).lower() in IMMUTABLE_CONFIG_OPTIONS]
-
-      if immutable_params:
-        raise stem.InvalidArguments(message = "%s cannot be changed while tor's running" % ', '.join(sorted(immutable_params)), arguments = immutable_params)
+      log.debug(
+          f'{query} (failed, code: {response.code}, message: {response.message})'
+      )
+      if immutable_params := [
+          k for k, v in params_list if stem.util.str_tools._to_unicode(
+              k).lower() in IMMUTABLE_CONFIG_OPTIONS
+      ]:
+        raise stem.InvalidArguments(
+            message=
+            f"{', '.join(sorted(immutable_params))} cannot be changed while tor's running",
+            arguments=immutable_params,
+        )
 
       if response.code == '552':
         if response.message.startswith("Unrecognized option: Unknown option '"):
@@ -2530,7 +2543,7 @@ class Controller(BaseController):
       elif response.code in ('513', '553'):
         raise stem.InvalidRequest(response.code, response.message)
       else:
-        raise stem.ProtocolError('Returned unexpected status code: %s' % response.code)
+        raise stem.ProtocolError(f'Returned unexpected status code: {response.code}')
 
   @with_default()
   async def get_hidden_service_conf(self, default: Any = UNDEFINED) -> Dict[str, Any]:
@@ -2583,7 +2596,7 @@ class Controller(BaseController):
       log.debug('GETCONF HiddenServiceOptions (runtime: %0.4f)' %
                 (time.time() - start_time))
     except stem.ControllerError as exc:
-      log.debug('GETCONF HiddenServiceOptions (failed: %s)' % exc)
+      log.debug(f'GETCONF HiddenServiceOptions (failed: {exc})')
       raise
 
     service_dir_map = collections.OrderedDict()  # type: collections.OrderedDict[str, Any]
@@ -2614,11 +2627,17 @@ class Controller(BaseController):
             target_address, target_port = target.rsplit(':', 1)
 
         if not stem.util.connection.is_valid_port(port):
-          raise stem.ProtocolError('GETCONF provided an invalid HiddenServicePort port (%s): %s' % (port, content))
+          raise stem.ProtocolError(
+              f'GETCONF provided an invalid HiddenServicePort port ({port}): {content}'
+          )
         elif not stem.util.connection.is_valid_ipv4_address(target_address) and not stem.util.connection.is_valid_ipv6_address(target_address):
-          raise stem.ProtocolError('GETCONF provided an invalid HiddenServicePort target address (%s): %s' % (target_address, content))
+          raise stem.ProtocolError(
+              f'GETCONF provided an invalid HiddenServicePort target address ({target_address}): {content}'
+          )
         elif not stem.util.connection.is_valid_port(target_port):
-          raise stem.ProtocolError('GETCONF provided an invalid HiddenServicePort target port (%s): %s' % (target_port, content))
+          raise stem.ProtocolError(
+              f'GETCONF provided an invalid HiddenServicePort target port ({target_port}): {content}'
+          )
 
         service_dir_map[directory]['HiddenServicePort'].append((int(port), target_address, int(target_port)))
       else:
@@ -2679,12 +2698,12 @@ class Controller(BaseController):
         if k == 'HiddenServicePort':
           for entry in v:
             if isinstance(entry, int):
-              entry = '%s 127.0.0.1:%s' % (entry, entry)
+              entry = f'{entry} 127.0.0.1:{entry}'
             elif isinstance(entry, str):
               pass  # just pass along what the user gave us
             elif isinstance(entry, tuple):
               port, target_address, target_port = entry
-              entry = '%s %s:%s' % (port, target_address, target_port)
+              entry = f'{port} {target_address}:{target_port}'
 
             hidden_service_options.append(('HiddenServicePort', entry))
         else:

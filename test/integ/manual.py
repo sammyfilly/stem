@@ -3,6 +3,7 @@ Integ testing for the stem.manual module, fetching the latest man page from the
 tor git repository and checking for new additions.
 """
 
+
 import codecs
 import os
 import tempfile
@@ -16,58 +17,67 @@ import test.runner
 from stem.manual import Category
 from stem.util.test_tools import async_test
 
-EXPECTED_CATEGORIES = set([
-  'NAME',
-  'SYNOPSIS',
-  'DESCRIPTION',
-  'COMMAND-LINE OPTIONS',
-  'THE CONFIGURATION FILE FORMAT',
-  'GENERAL OPTIONS',
-  'CLIENT OPTIONS',
-  'CIRCUIT TIMEOUT OPTIONS',
-  'DORMANT MODE OPTIONS',
-  'NODE SELECTION OPTIONS',
-  'SERVER OPTIONS',
-  'STATISTICS OPTIONS',
-  'DIRECTORY SERVER OPTIONS',
-  'DIRECTORY AUTHORITY SERVER OPTIONS',
-  'HIDDEN SERVICE OPTIONS',
-  'DENIAL OF SERVICE MITIGATION OPTIONS',
-  'CLIENT AUTHORIZATION',
-  'TESTING NETWORK OPTIONS',
-  'NON-PERSISTENT OPTIONS',
-  'SIGNALS',
-  'FILES',
-  'SEE ALSO',
-  'BUGS',
-  'AUTHORS',
-])
+EXPECTED_CATEGORIES = {
+    'NAME',
+    'SYNOPSIS',
+    'DESCRIPTION',
+    'COMMAND-LINE OPTIONS',
+    'THE CONFIGURATION FILE FORMAT',
+    'GENERAL OPTIONS',
+    'CLIENT OPTIONS',
+    'CIRCUIT TIMEOUT OPTIONS',
+    'DORMANT MODE OPTIONS',
+    'NODE SELECTION OPTIONS',
+    'SERVER OPTIONS',
+    'STATISTICS OPTIONS',
+    'DIRECTORY SERVER OPTIONS',
+    'DIRECTORY AUTHORITY SERVER OPTIONS',
+    'HIDDEN SERVICE OPTIONS',
+    'DENIAL OF SERVICE MITIGATION OPTIONS',
+    'CLIENT AUTHORIZATION',
+    'TESTING NETWORK OPTIONS',
+    'NON-PERSISTENT OPTIONS',
+    'SIGNALS',
+    'FILES',
+    'SEE ALSO',
+    'BUGS',
+    'AUTHORS',
+}
 
-EXPECTED_CLI_OPTIONS = set([
-  '--allow-missing-torrc',
-  '--dbg-...',
-  '--defaults-torrc FILE',
-  '--dump-config short|full',
-  '--hash-password PASSWORD',
-  '--ignore-missing-torrc',
-  '--key-expiration [purpose]',
-  '--keygen [--newpass]',
-  '--list-deprecated-options',
-  '--list-fingerprint',
-  '--list-modules',
-  '--list-torrc-options',
-  '--nt-service',
-  '--passphrase-fd FILEDES',
-  '--quiet|--hush',
-  '--service install [--options command-line options]',
-  '--service remove|start|stop',
-  '--verify-config',
-  '--version',
-  '-f FILE',
-  '-h, --help',
-])
+EXPECTED_CLI_OPTIONS = {
+    '--allow-missing-torrc',
+    '--dbg-...',
+    '--defaults-torrc FILE',
+    '--dump-config short|full',
+    '--hash-password PASSWORD',
+    '--ignore-missing-torrc',
+    '--key-expiration [purpose]',
+    '--keygen [--newpass]',
+    '--list-deprecated-options',
+    '--list-fingerprint',
+    '--list-modules',
+    '--list-torrc-options',
+    '--nt-service',
+    '--passphrase-fd FILEDES',
+    '--quiet|--hush',
+    '--service install [--options command-line options]',
+    '--service remove|start|stop',
+    '--verify-config',
+    '--version',
+    '-f FILE',
+    '-h, --help',
+}
 
-EXPECTED_SIGNALS = set(['SIGTERM', 'SIGINT', 'SIGHUP', 'SIGUSR1', 'SIGUSR2', 'SIGCHLD', 'SIGPIPE', 'SIGXFSZ'])
+EXPECTED_SIGNALS = {
+    'SIGTERM',
+    'SIGINT',
+    'SIGHUP',
+    'SIGUSR1',
+    'SIGUSR2',
+    'SIGCHLD',
+    'SIGPIPE',
+    'SIGXFSZ',
+}
 
 EXPECTED_DESCRIPTION = """
 Tor is a connection-oriented anonymizing communication service. Users choose a source-routed path through a set of nodes, and negotiate a "virtual circuit" through the network. Each node in a virtual circuit knows its predecessor and successor nodes, but no other nodes. Traffic flowing down the circuit is unwrapped by a symmetric key at each node, which reveals the downstream node.
@@ -88,33 +98,34 @@ EXPECTED_EXIT_POLICY_DESCRIPTION_END = 'it applies to both IPv4 and IPv6 address
 
 class TestManual(unittest.TestCase):
   @classmethod
-  def setUpClass(self):
-    self.man_path = None
-    self.man_content = None
-    self.skip_reason = None
-    self.download_error = None
+  def setUpClass(cls):
+    cls.man_path = None
+    cls.man_content = None
+    cls.skip_reason = None
+    cls.download_error = None
 
     if stem.util.system.is_windows():
-      self.skip_reason = '(unavailable on windows)'
+      cls.skip_reason = '(unavailable on windows)'
     elif test.Target.ONLINE not in test.runner.get_runner().attribute_targets:
-      self.skip_reason = '(requires online target)'
+      cls.skip_reason = '(requires online target)'
     elif not stem.util.system.is_available('a2x'):
-      self.skip_reason = '(requires asciidoc)'
+      cls.skip_reason = '(requires asciidoc)'
     else:
       try:
         with tempfile.NamedTemporaryFile(prefix = 'tor_man_page.', delete = False) as tmp:
           stem.manual.download_man_page(file_handle = tmp)
-          self.man_path = tmp.name
+          cls.man_path = tmp.name
 
-        man_cmd = 'man %s -P cat %s' % ('' if not stem.manual.HAS_ENCODING_ARG else '--encoding=ascii', self.man_path)
-        self.man_content = stem.util.system.call(man_cmd, env = {'MANWIDTH': '10000000'})
+        man_cmd = f"man {'' if not stem.manual.HAS_ENCODING_ARG else '--encoding=ascii'} -P cat {cls.man_path}"
+        cls.man_content = stem.util.system.call(man_cmd,
+                                                env={'MANWIDTH': '10000000'})
       except Exception as exc:
-        self.download_error = 'Unable to download the man page: %s' % exc
+        cls.download_error = f'Unable to download the man page: {exc}'
 
   @classmethod
-  def tearDownClass(self):
-    if self.man_path and os.path.exists(self.man_path):
-      os.remove(self.man_path)
+  def tearDownClass(cls):
+    if cls.man_path and os.path.exists(cls.man_path):
+      os.remove(cls.man_path)
 
   # TODO: replace with a 'require' annotation
 
@@ -138,7 +149,7 @@ class TestManual(unittest.TestCase):
       try:
         codecs.ascii_encode(content, 'strict')
       except UnicodeEncodeError as exc:
-        self.fail("Unable to read '%s' as ascii: %s" % (content, exc))
+        self.fail(f"Unable to read '{content}' as ascii: {exc}")
 
     categories = stem.manual._get_categories(self.man_content)
 
@@ -206,13 +217,18 @@ class TestManual(unittest.TestCase):
     assert_equal('lib path description', 'The tor process stores keys and other data here.', manual.files['@LOCALSTATEDIR@/lib/tor/'])
 
     for category in Category:
-      if len([entry for entry in manual.config_options.values() if entry.category == category]) == 0 and category != Category.UNKNOWN:
-        self.fail('We had an empty %s section, did we intentionally drop it?' % category)
+      if (not [
+          entry for entry in manual.config_options.values()
+          if entry.category == category
+      ] and category != Category.UNKNOWN):
+        self.fail(f'We had an empty {category} section, did we intentionally drop it?')
 
     unknown_options = [entry for entry in manual.config_options.values() if entry.category == Category.UNKNOWN]
 
     if unknown_options:
-      self.fail("We don't recognize the category for the %s options. Maybe a new man page section? If so then please update the Category enum in stem/manual.py." % ', '.join([option.name for option in unknown_options]))
+      self.fail(
+          f"We don't recognize the category for the {', '.join([option.name for option in unknown_options])} options. Maybe a new man page section? If so then please update the Category enum in stem/manual.py."
+      )
 
     option = manual.config_options['BandwidthRate']
     self.assertEqual(Category.GENERAL, option.category)
@@ -237,9 +253,13 @@ class TestManual(unittest.TestCase):
     extra_categories = present.difference(EXPECTED_CATEGORIES)
 
     if missing_categories:
-      self.fail("Changed tor's man page? We expected the %s man page sections but they're no longer around. Might need to update our Manual class." % ', '.join(missing_categories))
+      self.fail(
+          f"Changed tor's man page? We expected the {', '.join(missing_categories)} man page sections but they're no longer around. Might need to update our Manual class."
+      )
     elif extra_categories:
-      self.fail("Changed tor's man page? We weren't expecting the %s man page sections. Might need to update our Manual class." % ', '.join(extra_categories))
+      self.fail(
+          f"Changed tor's man page? We weren't expecting the {', '.join(extra_categories)} man page sections. Might need to update our Manual class."
+      )
 
     self.assertEqual(['tor - The second-generation onion router'], categories['NAME'])
     self.assertEqual(['tor [OPTION value]...'], categories['SYNOPSIS'])

@@ -57,11 +57,9 @@ def _make_config(contents):
 
   test_config_path = _get_test_config_path()
 
-  test_conf_file = open(test_config_path, 'w')
-  test_conf_file.write(CONF_HEADER)
-  test_conf_file.write(contents)
-  test_conf_file.close()
-
+  with open(test_config_path, 'w') as test_conf_file:
+    test_conf_file.write(CONF_HEADER)
+    test_conf_file.write(contents)
   return test_config_path
 
 
@@ -111,7 +109,8 @@ class TestConf(unittest.TestCase):
     test_config.load(test_config_path)
 
     for entry in ('simple', 'leading_whitespace', 'squashed_top', 'squashed_bottom'):
-      self.assertEqual('la de da\nand a ho hum', test_config.get('multiline.entry.%s' % entry))
+      self.assertEqual('la de da\nand a ho hum',
+                       test_config.get(f'multiline.entry.{entry}'))
 
     self.assertEqual('', test_config.get('multiline.entry.empty'))
 

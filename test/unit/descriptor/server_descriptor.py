@@ -2,6 +2,7 @@
 Unit tests for stem.descriptor.server_descriptor.
 """
 
+
 import collections
 import datetime
 import functools
@@ -33,11 +34,11 @@ from test.unit.descriptor import (
   base_expect_invalid_attr_for_text,
 )
 
-TARFILE_FINGERPRINTS = set([
-  'B6D83EC2D9E18B0A7A33428F8CFA9C536769E209',
-  'E0BD57A11F00041A9789577C53A1B784473669E4',
-  '1F43EE37A0670301AD9CB555D94AFEC2C89FDE86',
-])
+TARFILE_FINGERPRINTS = {
+    'B6D83EC2D9E18B0A7A33428F8CFA9C536769E209',
+    'E0BD57A11F00041A9789577C53A1B784473669E4',
+    '1F43EE37A0670301AD9CB555D94AFEC2C89FDE86',
+}
 
 expect_invalid_attr = functools.partial(base_expect_invalid_attr, RelayDescriptor, 'nickname', 'Unnamed')
 expect_invalid_attr_for_text = functools.partial(base_expect_invalid_attr_for_text, RelayDescriptor, 'nickname', 'Unnamed')
@@ -56,7 +57,7 @@ class TestServerDescriptor(unittest.TestCase):
     descriptors = list(stem.descriptor.parse_file(get_resource('descriptor_archive.tar')))
     self.assertEqual(3, len(descriptors))
 
-    fingerprints = set([desc.fingerprint for desc in descriptors])
+    fingerprints = {desc.fingerprint for desc in descriptors}
     self.assertEqual(TARFILE_FINGERPRINTS, fingerprints)
 
   def test_with_tarfile_object(self):
@@ -68,7 +69,7 @@ class TestServerDescriptor(unittest.TestCase):
       descriptors = list(stem.descriptor.parse_file(tar_file))
       self.assertEqual(3, len(descriptors))
 
-      fingerprints = set([desc.fingerprint for desc in descriptors])
+      fingerprints = {desc.fingerprint for desc in descriptors}
       self.assertEqual(TARFILE_FINGERPRINTS, fingerprints)
 
   def test_metrics_descriptor(self):
@@ -76,16 +77,16 @@ class TestServerDescriptor(unittest.TestCase):
     Parses and checks our results against a server descriptor from metrics.
     """
 
-    expected_family = set([
-      '$0CE3CFB1E9CC47B63EA8869813BF6FAB7D4540C1',
-      '$1FD187E8F69A9B74C9202DC16A25B9E7744AB9F6',
-      '$74FB5EFA6A46DE4060431D515DC9A790E6AD9A7C',
-      '$77001D8DA9BF445B0F81AA427A675F570D222E6A',
-      '$B6D83EC2D9E18B0A7A33428F8CFA9C536769E209',
-      '$D2F37F46182C23AB747787FD657E680B34EAF892',
-      '$E0BD57A11F00041A9789577C53A1B784473669E4',
-      '$E5E3E9A472EAF7BE9682B86E92305DB4C71048EF',
-    ])
+    expected_family = {
+        '$0CE3CFB1E9CC47B63EA8869813BF6FAB7D4540C1',
+        '$1FD187E8F69A9B74C9202DC16A25B9E7744AB9F6',
+        '$74FB5EFA6A46DE4060431D515DC9A790E6AD9A7C',
+        '$77001D8DA9BF445B0F81AA427A675F570D222E6A',
+        '$B6D83EC2D9E18B0A7A33428F8CFA9C536769E209',
+        '$D2F37F46182C23AB747787FD657E680B34EAF892',
+        '$E0BD57A11F00041A9789577C53A1B784473669E4',
+        '$E5E3E9A472EAF7BE9682B86E92305DB4C71048EF',
+    }
 
     expected_onion_key = """-----BEGIN RSA PUBLIC KEY-----
 MIGJAoGBAJv5IIWQ+WDWYUdyA/0L8qbIkEVH/cwryZWoIaPAzINfrw1WfNZGtBmg
@@ -357,12 +358,12 @@ Qlx9HNCqCY877ztFRC624ja2ql6A2hBcuoYMbkHjcQ4=
         skip_crypto_validation = not test.require.CRYPTOGRAPHY_AVAILABLE,
       ))
 
-    family = set([
-      '$379FB450010D17078B3766C2273303C358C3A442',
-      '$3EB46C1D8D8B1C0BBCB6E4F08301EF68B7F5308D',
-      '$B0279A521375F3CB2AE210BDBFC645FDD2E1973A',
-      '$EC116BCB80565A408CE67F8EC3FE3B0B02C3A065',
-    ])
+    family = {
+        '$379FB450010D17078B3766C2273303C358C3A442',
+        '$3EB46C1D8D8B1C0BBCB6E4F08301EF68B7F5308D',
+        '$B0279A521375F3CB2AE210BDBFC645FDD2E1973A',
+        '$EC116BCB80565A408CE67F8EC3FE3B0B02C3A065',
+    }
 
     self.assertEqual(1, desc.certificate.version)
     self.assertEqual(CertType.ED25519_SIGNING, desc.certificate.type)
@@ -686,9 +687,9 @@ Qlx9HNCqCY877ztFRC624ja2ql6A2hBcuoYMbkHjcQ4=
     extra-info descriptors.
     """
 
+    value = '2005-12-16 18:00:48 (900 s) 81,8848,8927,8927,83,8848'
     for field in ('read-history', 'write-history'):
-      value = '2005-12-16 18:00:48 (900 s) 81,8848,8927,8927,83,8848'
-      desc = RelayDescriptor.create({'opt %s' % field: value})
+      desc = RelayDescriptor.create({f'opt {field}': value})
 
       if field == 'read-history':
         attr = (desc.read_history_end, desc.read_history_interval, desc.read_history_values)

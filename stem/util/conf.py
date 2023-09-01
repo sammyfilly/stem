@@ -183,9 +183,7 @@ class _SyncListener(object):
         return  # no change
 
       if self.interceptor:
-        interceptor_value = self.interceptor(key, new_value)
-
-        if interceptor_value:
+        if interceptor_value := self.interceptor(key, new_value):
           new_value = interceptor_value
 
       self.config_dict[key] = new_value  # type: ignore
@@ -355,7 +353,9 @@ def parse_enum_csv(key: str, value: str, enumeration: 'stem.util.enum.Enum', cou
     if maximum is not None and len(values) > maximum:
       raise ValueError("Config entry '%s' can have at most %i comma separated values, got '%s'" % (key, maximum, value))
   else:
-    raise ValueError("The count must be None, an int, or two value tuple. Got '%s' (%s)'" % (count, type(count)))
+    raise ValueError(
+        f"The count must be None, an int, or two value tuple. Got '{count}' ({type(count)})'"
+    )
 
   result = []
   enum_keys = [k.upper() for k in list(enumeration.keys())]
@@ -365,7 +365,9 @@ def parse_enum_csv(key: str, value: str, enumeration: 'stem.util.enum.Enum', cou
     if val in enum_keys:
       result.append(enum_values[enum_keys.index(val)])
     else:
-      raise ValueError("The '%s' entry of config entry '%s' wasn't in the enumeration (expected %s)" % (val, key, ', '.join(enum_keys)))
+      raise ValueError(
+          f"The '{val}' entry of config entry '{key}' wasn't in the enumeration (expected {', '.join(enum_keys)})"
+      )
 
   return result
 
@@ -518,10 +520,7 @@ class Config(object):
         if comment_start != -1:
           line = line[:comment_start]
 
-        line = line.strip()
-
-        # parse the key/value pair
-        if line:
+        if line := line.strip():
           if ' ' in line:
             key, value = line.split(' ', 1)
             self.set(key, value.strip(), False)
@@ -641,8 +640,6 @@ class Config(object):
       if value is None:
         if overwrite and key in self._contents:
           del self._contents[key]
-        else:
-          pass  # no value so this is a no-op
       elif isinstance(value, (bytes, str)):
         if not overwrite and key in self._contents:
           self._contents[key].append(value)
@@ -660,7 +657,9 @@ class Config(object):
         for listener in self._listeners:
           listener(self, key)
       else:
-        raise ValueError("Config.set() only accepts str (bytes or unicode), list, or tuple. Provided value was a '%s'" % type(value))
+        raise ValueError(
+            f"Config.set() only accepts str (bytes or unicode), list, or tuple. Provided value was a '{type(value)}'"
+        )
 
   def get(self, key: str, default: Optional[Any] = None) -> Any:
     """
@@ -712,7 +711,9 @@ class Config(object):
       elif val.lower() == 'false':
         val = False
       else:
-        log.debug("Config entry '%s' is expected to be a boolean, defaulting to '%s'" % (key, str(default)))
+        log.debug(
+            f"Config entry '{key}' is expected to be a boolean, defaulting to '{str(default)}'"
+        )
         val = default
     elif isinstance(default, int):
       try:
@@ -737,7 +738,9 @@ class Config(object):
           entry_key, entry_val = entry.split('=>', 1)
           val_map[entry_key.strip()] = entry_val.strip()
         else:
-          log.debug('Ignoring invalid %s config entry (expected a mapping, but "%s" was missing "=>")' % (key, entry))
+          log.debug(
+              f'Ignoring invalid {key} config entry (expected a mapping, but "{entry}" was missing "=>")'
+          )
       val = val_map
 
     return val
@@ -759,13 +762,14 @@ class Config(object):
       if key in self._contents:
         self._requested_keys.add(key)
 
-        if multiple:
-          return self._contents[key]
-        else:
-          return self._contents[key][-1]
+        return self._contents[key] if multiple else self._contents[key][-1]
       else:
-        message_id = 'stem.util.conf.missing_config_key_%s' % key
-        log.log_once(message_id, log.TRACE, "config entry '%s' not found, defaulting to '%s'" % (key, default))
+        message_id = f'stem.util.conf.missing_config_key_{key}'
+        log.log_once(
+            message_id,
+            log.TRACE,
+            f"config entry '{key}' not found, defaulting to '{default}'",
+        )
         return default
 
   def __getitem__(self, key: str) -> Any:

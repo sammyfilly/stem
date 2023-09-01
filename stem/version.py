@@ -66,18 +66,16 @@ def get_system_tor_version(tor_cmd: str = 'tor') -> 'stem.version.Version':
   """
 
   if tor_cmd not in VERSION_CACHE:
-    version_cmd = '%s --version' % tor_cmd
+    version_cmd = f'{tor_cmd} --version'
 
     try:
       version_output = stem.util.system.call(version_cmd)
     except OSError as exc:
-      # make the error message nicer if this is due to tor being unavialable
-
       if 'No such file or directory' in str(exc):
         if os.path.isabs(tor_cmd):
-          raise OSError("Unable to check tor's version. '%s' doesn't exist." % tor_cmd)
+          raise OSError(f"Unable to check tor's version. '{tor_cmd}' doesn't exist.")
         else:
-          raise OSError("Unable to run '%s'. Maybe tor isn't in your PATH?" % version_cmd)
+          raise OSError(f"Unable to run '{version_cmd}'. Maybe tor isn't in your PATH?")
 
       raise OSError(exc)
 
@@ -94,8 +92,8 @@ def get_system_tor_version(tor_cmd: str = 'tor') -> 'stem.version.Version':
         except ValueError as exc:
           raise OSError(exc)
 
-    if tor_cmd not in VERSION_CACHE:
-      raise OSError("'%s' didn't provide a parseable version:\n\n%s" % (version_cmd, '\n'.join(version_output)))
+  if tor_cmd not in VERSION_CACHE:
+    raise OSError("'%s' didn't provide a parseable version:\n\n%s" % (version_cmd, '\n'.join(version_output)))
 
   return VERSION_CACHE[tor_cmd]
 
@@ -132,34 +130,31 @@ class Version(object):
 
   def __init__(self, version_str: str) -> None:
     self.version_str = version_str
-    version_parts = VERSION_PATTERN.match(version_str)
+    if not (version_parts := VERSION_PATTERN.match(version_str)):
+      raise ValueError(f"'{version_str}' isn't a properly formatted tor version")
+    major, minor, micro, patch_str, status, extra_str, _ = version_parts.groups()
 
-    if version_parts:
-      major, minor, micro, patch_str, status, extra_str, _ = version_parts.groups()
+    # The patch and status matches are optional (may be None) and have an extra
+    # proceeding period or dash if they exist. Stripping those off.
 
-      # The patch and status matches are optional (may be None) and have an extra
-      # proceeding period or dash if they exist. Stripping those off.
+    patch = int(patch_str[1:]) if patch_str else None
 
-      patch = int(patch_str[1:]) if patch_str else None
+    if status:
+      status = status[1:]
 
-      if status:
-        status = status[1:]
+    self.major = int(major)
+    self.minor = int(minor)
+    self.micro = int(micro)
+    self.patch = patch
+    self.status = status
+    self.all_extra = [entry[1:-1] for entry in extra_str.strip().split()] if extra_str else []
+    self.extra = self.all_extra[0] if self.all_extra else None
+    self.git_commit = None
 
-      self.major = int(major)
-      self.minor = int(minor)
-      self.micro = int(micro)
-      self.patch = patch
-      self.status = status
-      self.all_extra = [entry[1:-1] for entry in extra_str.strip().split()] if extra_str else []
-      self.extra = self.all_extra[0] if self.all_extra else None
-      self.git_commit = None
-
-      for extra in self.all_extra:
-        if extra and re.match('^git-[0-9a-f]{16}$', extra):
-          self.git_commit = extra[4:]
-          break
-    else:
-      raise ValueError("'%s' isn't a properly formatted tor version" % version_str)
+    for extra in self.all_extra:
+      if extra and re.match('^git-[0-9a-f]{16}$', extra):
+        self.git_commit = extra[4:]
+        break
 
   def __str__(self) -> str:
     """

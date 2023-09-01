@@ -195,7 +195,7 @@ def download(url: str, timeout: Optional[float] = None, retries: Optional[int] =
       log.debug('Failed to download from %s (%i retries remaining): %s' % (url, retries, exception))
       return download(url, timeout, retries - 1)
     else:
-      log.debug('Failed to download from %s: %s' % (url, exception))
+      log.debug(f'Failed to download from {url}: {exception}')
       raise stem.DownloadFailed(url, exception, stacktrace)
 
 
@@ -245,25 +245,31 @@ def get_connections(resolver: Optional['stem.util.connection.Resolver'] = None, 
       log.debug(msg)
 
   _log('=' * 80)
-  _log('Querying connections for resolver: %s, pid: %s, name: %s' % (resolver, process_pid, process_name))
+  _log(
+      f'Querying connections for resolver: {resolver}, pid: {process_pid}, name: {process_name}'
+  )
 
   if isinstance(process_pid, str):
     try:
       process_pid = int(process_pid)
     except ValueError:
-      raise ValueError('Process pid was non-numeric: %s' % process_pid)
+      raise ValueError(f'Process pid was non-numeric: {process_pid}')
 
   if process_pid is None:
     all_pids = stem.util.system.pid_by_name(process_name, True)  # type: List[int] # type: ignore
 
     if len(all_pids) == 0:
       if resolver in (Resolver.NETSTAT_WINDOWS, Resolver.PROC, Resolver.BSD_PROCSTAT):
-        raise OSError("Unable to determine the pid of '%s'. %s requires the pid to provide the connections." % (process_name, resolver))
+        raise OSError(
+            f"Unable to determine the pid of '{process_name}'. {resolver} requires the pid to provide the connections."
+        )
     elif len(all_pids) == 1:
       process_pid = all_pids[0]
     else:
       if resolver in (Resolver.NETSTAT_WINDOWS, Resolver.PROC, Resolver.BSD_PROCSTAT):
-        raise OSError("There's multiple processes named '%s'. %s requires a single pid to provide the connections." % (process_name, resolver))
+        raise OSError(
+            f"There's multiple processes named '{process_name}'. {resolver} requires a single pid to provide the connections."
+        )
 
   if resolver == Resolver.PROC:
     return stem.util.proc.connections(pid = process_pid)
@@ -273,7 +279,7 @@ def get_connections(resolver: Optional['stem.util.connection.Resolver'] = None, 
   try:
     results = stem.util.system.call(resolver_command)
   except OSError as exc:
-    raise OSError("Unable to query '%s': %s" % (resolver_command, exc))
+    raise OSError(f"Unable to query '{resolver_command}': {exc}")
 
   resolver_regex_str = RESOLVER_FILTER[resolver].format(
     protocol = '(?P<protocol>\\S+)',
@@ -283,7 +289,7 @@ def get_connections(resolver: Optional['stem.util.connection.Resolver'] = None, 
     name = process_name if process_name else '\\S*',
   )
 
-  _log('Resolver regex: %s' % resolver_regex_str)
+  _log(f'Resolver regex: {resolver_regex_str}')
   _log('Resolver results:\n%s' % '\n'.join(results))
 
   connections = []
@@ -293,13 +299,13 @@ def get_connections(resolver: Optional['stem.util.connection.Resolver'] = None, 
     addr, port = addr_str.rsplit(':', 1)
 
     if not is_valid_ipv4_address(addr) and not is_valid_ipv6_address(addr, allow_brackets = True):
-      _log('Invalid %s address (%s): %s' % (addr_type, addr, line))
+      _log(f'Invalid {addr_type} address ({addr}): {line}')
       return None, None
     elif not is_valid_port(port):
-      _log('Invalid %s port (%s): %s' % (addr_type, port, line))
+      _log(f'Invalid {addr_type} port ({port}): {line}')
       return None, None
     else:
-      _log('Valid %s:%s: %s' % (addr, port, line))
+      _log(f'Valid {addr}:{port}: {line}')
       return addr.lstrip('[').rstrip(']'), int(port)
 
   for line in results:
@@ -320,7 +326,7 @@ def get_connections(resolver: Optional['stem.util.connection.Resolver'] = None, 
         protocol = 'tcp'
 
       if protocol not in ('tcp', 'udp'):
-        _log('Unrecognized protocol (%s): %s' % (protocol, line))
+        _log(f'Unrecognized protocol ({protocol}): {line}')
         continue
 
       conn = Connection(local_addr, local_port, remote_addr, remote_port, protocol, is_valid_ipv6_address(local_addr))
@@ -330,7 +336,7 @@ def get_connections(resolver: Optional['stem.util.connection.Resolver'] = None, 
   _log('%i connections found' % len(connections))
 
   if not connections:
-    raise OSError('No results found using: %s' % resolver_command)
+    raise OSError(f'No results found using: {resolver_command}')
 
   return connections
 
@@ -352,23 +358,19 @@ def system_resolvers(system: Optional[str] = None) -> Sequence['stem.util.connec
   """
 
   if system is None:
-    if stem.util.system.is_gentoo():
-      system = 'Gentoo'
-    else:
-      system = platform.system()
-
-  if system == 'Windows':
-    resolvers = [Resolver.NETSTAT_WINDOWS]
-  elif system == 'Darwin':
+    system = 'Gentoo' if stem.util.system.is_gentoo() else platform.system()
+  if system == 'Darwin':
     resolvers = [Resolver.LSOF]
-  elif system == 'OpenBSD':
-    resolvers = [Resolver.BSD_FSTAT]
   elif system == 'FreeBSD':
     # Netstat is available, but lacks a '-p' equivalent so we can't associate
     # the results to processes. The platform also has a ss command, but it
     # belongs to a spreadsheet application.
 
     resolvers = [Resolver.BSD_SOCKSTAT, Resolver.BSD_PROCSTAT, Resolver.LSOF]
+  elif system == 'OpenBSD':
+    resolvers = [Resolver.BSD_FSTAT]
+  elif system == 'Windows':
+    resolvers = [Resolver.NETSTAT_WINDOWS]
   else:
     resolvers = [Resolver.NETSTAT, Resolver.LSOF, Resolver.SS]
 
@@ -408,24 +410,26 @@ def port_usage(port: int) -> Optional[str]:
 
       for key, value in config.get('port', {}).items():
         if key.isdigit():
-         port_uses[int(key)] = value
+          port_uses[int(key)] = value
         elif '-' in key:
           min_port, max_port = key.split('-', 1)
 
           for port_entry in range(int(min_port), int(max_port) + 1):
             port_uses[port_entry] = value
         else:
-          raise ValueError("'%s' is an invalid key" % key)
+          raise ValueError(f"'{key}' is an invalid key")
 
       PORT_USES = port_uses
     except Exception as exc:
-      log.warn("BUG: stem failed to load its internal port descriptions from '%s': %s" % (config_path, exc))
+      log.warn(
+          f"BUG: stem failed to load its internal port descriptions from '{config_path}': {exc}"
+      )
 
   if not PORT_USES:
     return None
 
   if isinstance(port, str) and port.isdigit():
-    port = int(port)
+    port = port
 
   return PORT_USES.get(port)
 
@@ -507,11 +511,8 @@ def is_valid_ipv6_address(address: str, allow_brackets: bool = False) -> bool:
   elif address.count('::') > 1 or ':::' in address:
     return False  # multiple groupings of zeros can't be collapsed
 
-  for entry in address.split(':'):
-    if not re.match('^[0-9a-fA-f]{0,4}$', entry):
-      return False
-
-  return True
+  return all(
+      re.match('^[0-9a-fA-f]{0,4}$', entry) for entry in address.split(':'))
 
 
 def is_valid_port(entry: Union[str, int, Sequence[str], Sequence[int]], allow_zero: bool = False) -> bool:
@@ -525,12 +526,7 @@ def is_valid_port(entry: Union[str, int, Sequence[str], Sequence[int]], allow_ze
   """
 
   if isinstance(entry, (tuple, list)):
-    for port in entry:
-      if not is_valid_port(port, allow_zero):
-        return False
-
-    return True
-
+    return all(is_valid_port(port, allow_zero) for port in entry)
   try:
     value = int(entry)  # type: ignore
 
@@ -540,9 +536,7 @@ def is_valid_port(entry: Union[str, int, Sequence[str], Sequence[int]], allow_ze
       return True
     else:
       return value > 0 and value < 65536
-  except TypeError:
-    return False
-  except ValueError:
+  except (TypeError, ValueError):
     return False
 
 
@@ -564,7 +558,7 @@ def is_private_address(address: str) -> bool:
   """
 
   if not is_valid_ipv4_address(address):
-    raise ValueError("'%s' isn't a valid IPv4 address" % address)
+    raise ValueError(f"'{address}' isn't a valid IPv4 address")
 
   # checks for any of the simple wildcard ranges
 
@@ -625,7 +619,7 @@ def expand_ipv6_address(address: str) -> str:
     address = str_tools._to_unicode(address)
 
   if not is_valid_ipv6_address(address):
-    raise ValueError("'%s' isn't a valid IPv6 address" % address)
+    raise ValueError(f"'{address}' isn't a valid IPv6 address")
 
   # expand ipv4-mapped portions of addresses
   if address.count('.') == 3:
@@ -730,16 +724,14 @@ def _get_masked_bits(mask: str) -> int:
   """
 
   if not is_valid_ipv4_address(mask):
-    raise ValueError("'%s' is an invalid subnet mask" % mask)
+    raise ValueError(f"'{mask}' is an invalid subnet mask")
 
   # converts octets to binary representation
   mask_bin = _address_to_binary(mask)
-  mask_match = re.match('^(1*)(0*)$', mask_bin)
-
-  if mask_match:
+  if mask_match := re.match('^(1*)(0*)$', mask_bin):
     return 32 - len(mask_match.groups()[1])
   else:
-    raise ValueError('Unable to convert mask to a bit count: %s' % mask)
+    raise ValueError(f'Unable to convert mask to a bit count: {mask}')
 
 
 def _get_binary(value: int, bits: int) -> str:
@@ -777,4 +769,4 @@ def _address_to_binary(address: str) -> str:
     address = expand_ipv6_address(address)
     return ''.join([_get_binary(int(grouping, 16), 16) for grouping in address.split(':')])
   else:
-    raise ValueError("'%s' is neither an IPv4 or IPv6 address" % address)
+    raise ValueError(f"'{address}' is neither an IPv4 or IPv6 address")

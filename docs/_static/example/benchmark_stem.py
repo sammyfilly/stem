@@ -11,7 +11,7 @@ def measure_average_advertised_bandwidth(path):
     count += 1
 
   runtime = time.time() - start_time
-  print("Finished measure_average_advertised_bandwidth('%s')" % path)
+  print(f"Finished measure_average_advertised_bandwidth('{path}')")
   print('  Total time: %i seconds' % runtime)
   print('  Processed server descriptors: %i' % count)
   print('  Average advertised bandwidth: %i' % (total_bw / count))
@@ -30,7 +30,7 @@ def measure_countries_v3_requests(path):
     count += 1
 
   runtime = time.time() - start_time
-  print("Finished measure_countries_v3_requests('%s')" % path)
+  print(f"Finished measure_countries_v3_requests('{path}')")
   print('  Total time: %i seconds' % runtime)
   print('  Processed extrainfo descriptors: %i' % count)
   print('  Number of countries: %i' % len(countries))
@@ -52,7 +52,7 @@ def measure_average_relays_exit(path):
     consensuses += 1
 
   runtime = time.time() - start_time
-  print("Finished measure_average_relays_exit('%s')" % path)
+  print(f"Finished measure_average_relays_exit('{path}')")
   print('  Total time: %i seconds' % runtime)
   print('  Processed %i consensuses with %i router status entries' % (consensuses, total_relays))
   print('  Total exits: %i (%0.2f%%)' % (exits, float(exits) / total_relays))
@@ -71,7 +71,7 @@ def measure_fraction_relays_exit_80_microdescriptors(path):
     count += 1
 
   runtime = time.time() - start_time
-  print("Finished measure_fraction_relays_exit_80_microdescriptors('%s')" % path)
+  print(f"Finished measure_fraction_relays_exit_80_microdescriptors('{path}')")
   print('  Total time: %i seconds' % runtime)
   print('  Processed microdescriptors: %i' % count)
   print('  Total exits to port 80: %i (%0.2f%%)' % (exits, float(exits) / count))

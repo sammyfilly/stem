@@ -110,15 +110,23 @@ class TestManual(unittest.TestCase):
 
     manual = _cached_manual()
     present = set(manual.config_options.keys())
-    expected = set([key[15:] for key in stem.manual._config(lowercase = False) if key.startswith('manual.summary.')])
+    expected = {
+        key[15:]
+        for key in stem.manual._config(lowercase=False)
+        if key.startswith('manual.summary.')
+    }
 
     missing_options = present.difference(expected)
     extra_options = expected.difference(present)
 
     if missing_options:
-      self.fail("Ran cache_manual.py? Please update Stem's settings.cfg with summaries of the following config options: %s" % ', '.join(missing_options))
+      self.fail(
+          f"Ran cache_manual.py? Please update Stem's settings.cfg with summaries of the following config options: {', '.join(missing_options)}"
+      )
     elif extra_options:
-      self.fail("Ran cache_manual.py? Please remove the following summaries from Stem's settings.cfg: %s" % ', '.join(extra_options))
+      self.fail(
+          f"Ran cache_manual.py? Please remove the following summaries from Stem's settings.cfg: {', '.join(extra_options)}"
+      )
 
   def test_is_important(self):
     self.assertTrue(stem.manual.is_important('ExitPolicy'))

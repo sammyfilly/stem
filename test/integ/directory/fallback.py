@@ -47,7 +47,7 @@ class TestFallback(unittest.TestCase):
     if unsuccessful:
       lines = ['We were unable to contact the following fallback directories...\n']
 
-      for fallback_directory, exc in unsuccessful.items():
-        lines.append('* %s:%s (%s): %s' % (fallback_directory.address, fallback_directory.dir_port, fallback_directory.fingerprint, exc))
-
+      lines.extend(
+          f'* {fallback_directory.address}:{fallback_directory.dir_port} ({fallback_directory.fingerprint}): {exc}'
+          for fallback_directory, exc in unsuccessful.items())
       self.fail('\n'.join(lines))

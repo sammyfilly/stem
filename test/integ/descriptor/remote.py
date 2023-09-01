@@ -78,14 +78,16 @@ class TestDescriptorDownloader(unittest.TestCase):
       stem_auth = stem.directory.Authority.from_cache().get(auth.nickname)
 
       if not stem_auth:
-        self.fail("%s isn't a recognized directory authority in stem" % auth.nickname)
+        self.fail(f"{auth.nickname} isn't a recognized directory authority in stem")
 
       for attr in ('v3ident', 'or_port', 'dir_port'):
         if auth.nickname == 'moria1' and attr == 'address':
           continue  # skip due to https://gitlab.torproject.org/tpo/core/tor/-/issues/14955
 
         if getattr(auth, attr) != getattr(stem_auth, attr):
-          self.fail('%s has %s %s, but we expected %s' % (auth.nickname, attr, getattr(auth, attr), getattr(stem_auth, attr)))
+          self.fail(
+              f'{auth.nickname} has {attr} {getattr(auth, attr)}, but we expected {getattr(stem_auth, attr)}'
+          )
 
   @test.require.only_run_once
   @test.require.online
@@ -99,20 +101,17 @@ class TestDescriptorDownloader(unittest.TestCase):
     then this test will need to be updated.
     """
 
-    queries = []
-
-    for nickname, authority in stem.directory.Authority.from_cache().items():
-      if nickname in stem.descriptor.remote.DIR_PORT_BLACKLIST:
-        continue
-
-      queries.append((stem.descriptor.remote.Query(
-        '/tor/server/fp/9695DFC35FFEB861329B9F1AB04C46397020CE31',
-        'server-descriptor 1.0',
-        endpoints = [stem.DirPort(authority.address, authority.dir_port)],
-        timeout = 30,
-        validate = True,
-      ), authority))
-
+    queries = [(
+        stem.descriptor.remote.Query(
+            '/tor/server/fp/9695DFC35FFEB861329B9F1AB04C46397020CE31',
+            'server-descriptor 1.0',
+            endpoints=[stem.DirPort(authority.address, authority.dir_port)],
+            timeout=30,
+            validate=True,
+        ),
+        authority,
+    ) for nickname, authority in stem.directory.Authority.from_cache().items()
+               if nickname not in stem.descriptor.remote.DIR_PORT_BLACKLIST]
     for query, authority in queries:
       try:
         descriptors = list(query.run())
@@ -120,7 +119,9 @@ class TestDescriptorDownloader(unittest.TestCase):
         for query, _ in queries:
           query.stop()
 
-        self.fail('Unable to use %s (%s:%s, %s): %s' % (authority.nickname, authority.address, authority.dir_port, type(exc), exc))
+        self.fail(
+            f'Unable to use {authority.nickname} ({authority.address}:{authority.dir_port}, {type(exc)}): {exc}'
+        )
       finally:
         query.stop()
 

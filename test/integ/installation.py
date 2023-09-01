@@ -73,15 +73,21 @@ class TestInstallation(unittest.TestCase):
 
     try:
       try:
-        stem.util.system.call('%s setup.py install --root %s' % (PYTHON_EXE, BASE_INSTALL_PATH), timeout = 60, cwd = test.STEM_BASE)
-        stem.util.system.call('%s setup.py clean --all' % PYTHON_EXE, timeout = 60, cwd = test.STEM_BASE)  # tidy up the build directory
+        stem.util.system.call(
+            f'{PYTHON_EXE} setup.py install --root {BASE_INSTALL_PATH}',
+            timeout=60,
+            cwd=test.STEM_BASE,
+        )
+        stem.util.system.call(f'{PYTHON_EXE} setup.py clean --all',
+                              timeout=60,
+                              cwd=test.STEM_BASE)
 
         if platform.python_implementation() == 'PyPy':
-          site_packages_paths = glob.glob('%s/*/*/site-packages' % BASE_INSTALL_PATH)
+          site_packages_paths = glob.glob(f'{BASE_INSTALL_PATH}/*/*/site-packages')
         else:
-          site_packages_paths = glob.glob('%s/*/*/lib*/*/*-packages' % BASE_INSTALL_PATH)
+          site_packages_paths = glob.glob(f'{BASE_INSTALL_PATH}/*/*/lib*/*/*-packages')
       except stem.util.system.CallError as exc:
-        msg = ["Unable to install with '%s': %s" % (exc.command, exc.msg)]
+        msg = [f"Unable to install with '{exc.command}': {exc.msg}"]
 
         if exc.stdout:
           msg += [
@@ -102,16 +108,24 @@ class TestInstallation(unittest.TestCase):
         raise AssertionError('\n'.join(msg))
 
       if not site_packages_paths:
-        all_files = glob.glob('%s/**' % BASE_INSTALL_PATH, recursive = True)
+        all_files = glob.glob(f'{BASE_INSTALL_PATH}/**', recursive = True)
         raise AssertionError('Unable to find site-packages, files include:\n\n%s' % '\n'.join(all_files))
       elif len(site_packages_paths) > 1:
-        raise AssertionError('We should only have a single site-packages directory, but instead had: %s' % site_packages_paths)
+        raise AssertionError(
+            f'We should only have a single site-packages directory, but instead had: {site_packages_paths}'
+        )
 
       install_path = site_packages_paths[0]
-      version_output = stem.util.system.call([PYTHON_EXE, '-c', "import sys;sys.path.insert(0, '%s');import stem;print(stem.__version__)" % install_path])[0]
+      version_output = stem.util.system.call([
+          PYTHON_EXE,
+          '-c',
+          f"import sys;sys.path.insert(0, '{install_path}');import stem;print(stem.__version__)",
+      ])[0]
 
       if stem.__version__ != version_output:
-        raise AssertionError('We expected the installed version to be %s but was %s' % (stem.__version__, version_output))
+        raise AssertionError(
+            f'We expected the installed version to be {stem.__version__} but was {version_output}'
+        )
 
       _assert_has_all_files(install_path)
     finally:
@@ -149,31 +163,39 @@ class TestInstallation(unittest.TestCase):
 
     try:
       try:
-        stem.util.system.call('%s setup.py sdist --dryrun' % PYTHON_EXE, timeout = 60, cwd = test.STEM_BASE)
+        stem.util.system.call(
+            f'{PYTHON_EXE} setup.py sdist --dryrun',
+            timeout=60,
+            cwd=test.STEM_BASE,
+        )
       except Exception as exc:
-        raise AssertionError("Unable to run 'python setup.py sdist': %s" % exc)
+        raise AssertionError(f"Unable to run 'python setup.py sdist': {exc}")
 
-      git_contents = [line.split()[-1] for line in stem.util.system.call('git --git-dir=%s ls-tree --full-tree -r HEAD' % git_dir)]
+      git_contents = [
+          line.split()[-1] for line in stem.util.system.call(
+              f'git --git-dir={git_dir} ls-tree --full-tree -r HEAD')
+      ]
 
       # tarball has a prefix 'stem-[verion]' directory so stipping that out
 
-      dist_content = glob.glob('%s/*' % os.path.join(test.STEM_BASE, 'dist'))
+      dist_content = glob.glob(f"{os.path.join(test.STEM_BASE, 'dist')}/*")
 
       if len(dist_content) != 1:
-        raise AssertionError('We should only have a single file in our dist directory, but instead had: %s' % ', '.join(dist_content))
+        raise AssertionError(
+            f"We should only have a single file in our dist directory, but instead had: {', '.join(dist_content)}"
+        )
 
       with tarfile.open(dist_content[0]) as dist_tar:
         tar_contents = ['/'.join(info.name.split('/')[1:]) for info in dist_tar.getmembers() if info.isfile()]
 
-      issues = []
-
-      for path in git_contents:
-        if path not in tar_contents and path not in ['.gitignore', '.travis.yml']:
-          issues.append('  * %s is missing from our release tarball' % path)
-
+      issues = [
+          f'  * {path} is missing from our release tarball'
+          for path in git_contents if path not in tar_contents
+          and path not in ['.gitignore', '.travis.yml']
+      ]
       for path in tar_contents:
         if path not in git_contents and path not in ['MANIFEST.in', 'PKG-INFO', 'setup.cfg'] and not path.startswith('stem_dry_run.egg-info'):
-          issues.append("  * %s isn't expected in our release tarball" % path)
+          issues.append(f"  * {path} isn't expected in our release tarball")
 
       if issues:
         raise AssertionError(INSTALL_MISMATCH_MSG + '\n'.join(issues))

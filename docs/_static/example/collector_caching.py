@@ -15,4 +15,4 @@ for f in collector.files('server-descriptor', start = yesterday):
 for f in collector.files('server-descriptor', start = yesterday):
   for desc in f.read(cache_dir):
     if desc.exit_policy.is_exiting_allowed():
-      print('  %s (%s)' % (desc.nickname, desc.fingerprint))
+      print(f'  {desc.nickname} ({desc.fingerprint})')

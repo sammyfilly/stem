@@ -31,7 +31,10 @@ class TestInterpreter(unittest.TestCase):
     if test.runner.Torrc.PASSWORD in test.runner.get_runner().get_options():
       self.skipTest('password auth unsupported')
 
-    expected = ['250-config-file=%s' % test.runner.get_runner().get_torrc_path(), '250 OK']
+    expected = [
+        f'250-config-file={test.runner.get_runner().get_torrc_path()}',
+        '250 OK',
+    ]
     self.assertEqual(expected, _run_prompt('--run', 'GETINFO config-file'))
 
   @test.require.controller
@@ -40,11 +43,11 @@ class TestInterpreter(unittest.TestCase):
       self.skipTest('password auth unsupported')
 
     expected = [
-      '250-config-file=%s' % test.runner.get_runner().get_torrc_path(),
-      '250 OK',
-      '',
-      '250-version=%s' % test.tor_version(),
-      '250 OK',
+        f'250-config-file={test.runner.get_runner().get_torrc_path()}',
+        '250 OK',
+        '',
+        f'250-version={test.tor_version()}',
+        '250 OK',
     ]
 
     with tempfile.NamedTemporaryFile(prefix = 'test_commands.') as tmp:

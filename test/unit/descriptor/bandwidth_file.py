@@ -339,5 +339,5 @@ class TestBandwidthFile(unittest.TestCase):
     )
 
     for value in test_values:
-      expected_exc = "First line should be a unix timestamp, but was '%s'" % stem.util.str_tools._to_unicode(value)
+      expected_exc = f"First line should be a unix timestamp, but was '{stem.util.str_tools._to_unicode(value)}'"
       self.assertRaisesWith(ValueError, expected_exc, BandwidthFile.create, {'timestamp': value})

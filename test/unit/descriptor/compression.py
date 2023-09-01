@@ -31,7 +31,7 @@ class TestCompression(unittest.TestCase):
     """
 
     if not compression.available:
-      self.skipTest('(%s unavailable)' % compression)
+      self.skipTest(f'({compression} unavailable)')
 
     with open(get_resource(filename), 'rb') as compressed_file:
       content = compression.decompress(compressed_file.read())

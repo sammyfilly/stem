@@ -149,9 +149,9 @@ class Synchronous(object):
       if not self._no_op and self._loop is None:
         self._loop = asyncio.new_event_loop()
         self._loop_thread = threading.Thread(
-          name = '%s asyncio' % type(self).__name__,
-          target = self._loop.run_forever,
-          daemon = True,
+            name=f'{type(self).__name__} asyncio',
+            target=self._loop.run_forever,
+            daemon=True,
         )
 
         self._loop_thread.start()
@@ -210,7 +210,8 @@ class Synchronous(object):
     func = getattr(type(self), method_name, None)
 
     if not func:
-      raise AttributeError("'%s' does not have a %s method" % (type(self).__name__, method_name))
+      raise AttributeError(
+          f"'{type(self).__name__}' does not have a {method_name} method")
     elif self._no_op or Synchronous.is_asyncio_context():
       return func(self, *args, **kwargs)
 

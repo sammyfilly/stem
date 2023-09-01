@@ -259,15 +259,11 @@ class BaseSocket(object):
     """
 
     try:
-      # makes a temporary reference to the _reader because connect()
-      # and close() may set or unset it
-
-      my_reader = self._reader
-
-      if not my_reader:
+      if my_reader := self._reader:
+        return await handler(my_reader)
+      else:
         raise stem.SocketClosed()
 
-      return await handler(my_reader)
     except stem.SocketClosed:
       if self.is_alive():
         await self.close()
@@ -367,11 +363,10 @@ class RelaySocket(BaseSocket):
     async def wrapped_recv(reader: asyncio.StreamReader) -> Optional[bytes]:
       if timeout is None:
         return await reader.read(1024)
-      else:
-        try:
-          return await asyncio.wait_for(reader.read(1024), max(timeout, 0.0001))
-        except asyncio.TimeoutError:
-          return None
+      try:
+        return await asyncio.wait_for(reader.read(1024), max(timeout, 0.0001))
+      except asyncio.TimeoutError:
+        return None
 
     return await self._recv(wrapped_recv)
 
@@ -527,7 +522,7 @@ async def send_message(writer: asyncio.StreamWriter, message: Union[bytes, str],
   if log.is_tracing():
     log_message = message.replace('\r\n', '\n').rstrip()
     msg_div = '\n' if '\n' in log_message else ' '
-    log.trace('Sent to tor:%s%s' % (msg_div, log_message))
+    log.trace(f'Sent to tor:{msg_div}{log_message}')
 
 
 async def _write_to_socket(writer: asyncio.StreamWriter, message: Union[str, bytes]) -> None:
@@ -535,7 +530,7 @@ async def _write_to_socket(writer: asyncio.StreamWriter, message: Union[str, byt
     writer.write(stem.util.str_tools._to_bytes(message))
     await writer.drain()
   except socket.error as exc:
-    log.info('Failed to send: %s' % exc)
+    log.info(f'Failed to send: {exc}')
 
     # When sending there doesn't seem to be a reliable method for
     # distinguishing between failures from a disconnect verses other things.
@@ -588,7 +583,7 @@ async def recv_message(reader: asyncio.StreamReader, arrived_at: Optional[float]
       #   * OSError: [Errno 107] Transport endpoint is not connected
       #   * OSError: [Errno 9] Bad file descriptor
 
-      log.info(ERROR_MSG % ('SocketClosed', 'received exception "%s"' % exc))
+      log.info(ERROR_MSG % ('SocketClosed', f'received exception "{exc}"'))
       raise stem.SocketClosed(exc)
 
     # Parses the tor control lines. These are of the form...
@@ -601,19 +596,22 @@ async def recv_message(reader: asyncio.StreamReader, arrived_at: Optional[float]
       log.info(ERROR_MSG % ('SocketClosed', 'empty socket content'))
       raise stem.SocketClosed('Received empty socket content.')
     elif not MESSAGE_PREFIX.match(line):
-      log.info(ERROR_MSG % ('ProtocolError', 'malformed status code/divider, "%s"' % log.escape(line.decode('utf-8'))))
+      log.info(ERROR_MSG % (
+          'ProtocolError',
+          f"""malformed status code/divider, "{log.escape(line.decode('utf-8'))}\"""",
+      ))
       raise stem.ProtocolError('Badly formatted reply line: beginning is malformed')
     elif not line.endswith(b'\r\n'):
-      log.info(ERROR_MSG % ('ProtocolError', 'no CRLF linebreak, "%s"' % log.escape(line.decode('utf-8'))))
+      log.info(ERROR_MSG % (
+          'ProtocolError',
+          f"""no CRLF linebreak, "{log.escape(line.decode('utf-8'))}\"""",
+      ))
       raise stem.ProtocolError('All lines should end with CRLF')
 
     status_code, divider, content = line[:3], line[3:4], line[4:-2]  # strip CRLF off content
 
     status_code = stem.util.str_tools._to_unicode(status_code)
     divider = stem.util.str_tools._to_unicode(divider)
-
-    # Most controller responses are single lines, in which case we don't need
-    # so much overhead.
 
     if first_line:
       if divider == ' ':
@@ -643,11 +641,17 @@ async def recv_message(reader: asyncio.StreamReader, arrived_at: Optional[float]
           line = await reader.readline()
           raw_content += line
         except socket.error as exc:
-          log.info(ERROR_MSG % ('SocketClosed', 'received an exception while mid-way through a data reply (exception: "%s", read content: "%s")' % (exc, log.escape(bytes(raw_content).decode('utf-8')))))
+          log.info(ERROR_MSG % (
+              'SocketClosed',
+              f"""received an exception while mid-way through a data reply (exception: "{exc}", read content: "{log.escape(bytes(raw_content).decode('utf-8'))}")""",
+          ))
           raise stem.SocketClosed(exc)
 
         if not line.endswith(b'\r\n'):
-          log.info(ERROR_MSG % ('ProtocolError', 'CRLF linebreaks missing from a data reply, "%s"' % log.escape(bytes(raw_content).decode('utf-8'))))
+          log.info(ERROR_MSG % (
+              'ProtocolError',
+              f"""CRLF linebreaks missing from a data reply, "{log.escape(bytes(raw_content).decode('utf-8'))}\"""",
+          ))
           raise stem.ProtocolError('All lines should end with CRLF')
         elif line == b'.\r\n':
           break  # data block termination
@@ -671,7 +675,9 @@ async def recv_message(reader: asyncio.StreamReader, arrived_at: Optional[float]
       # be safe...
 
       log.warn(ERROR_MSG % ('ProtocolError', "\"%s\" isn't a recognized divider type" % divider))
-      raise stem.ProtocolError("Unrecognized divider type '%s': %s" % (divider, stem.util.str_tools._to_unicode(line)))
+      raise stem.ProtocolError(
+          f"Unrecognized divider type '{divider}': {stem.util.str_tools._to_unicode(line)}"
+      )
 
 
 def recv_message_from_bytes_io(reader: BinaryIO, arrived_at: Optional[float] = None) -> stem.response.ControlMessage:
@@ -712,7 +718,7 @@ def recv_message_from_bytes_io(reader: BinaryIO, arrived_at: Optional[float] = N
       #   * OSError: [Errno 107] Transport endpoint is not connected
       #   * OSError: [Errno 9] Bad file descriptor
 
-      log.info(ERROR_MSG % ('SocketClosed', 'received exception "%s"' % exc))
+      log.info(ERROR_MSG % ('SocketClosed', f'received exception "{exc}"'))
       raise stem.SocketClosed(exc)
 
     # Parses the tor control lines. These are of the form...
@@ -725,19 +731,22 @@ def recv_message_from_bytes_io(reader: BinaryIO, arrived_at: Optional[float] = N
       log.info(ERROR_MSG % ('SocketClosed', 'empty socket content'))
       raise stem.SocketClosed('Received empty socket content.')
     elif not MESSAGE_PREFIX.match(line):
-      log.info(ERROR_MSG % ('ProtocolError', 'malformed status code/divider, "%s"' % log.escape(line.decode('utf-8'))))
+      log.info(ERROR_MSG % (
+          'ProtocolError',
+          f"""malformed status code/divider, "{log.escape(line.decode('utf-8'))}\"""",
+      ))
       raise stem.ProtocolError('Badly formatted reply line: beginning is malformed')
     elif not line.endswith(b'\r\n'):
-      log.info(ERROR_MSG % ('ProtocolError', 'no CRLF linebreak, "%s"' % log.escape(line.decode('utf-8'))))
+      log.info(ERROR_MSG % (
+          'ProtocolError',
+          f"""no CRLF linebreak, "{log.escape(line.decode('utf-8'))}\"""",
+      ))
       raise stem.ProtocolError('All lines should end with CRLF')
 
     status_code, divider, content = line[:3], line[3:4], line[4:-2]  # strip CRLF off content
 
     status_code = stem.util.str_tools._to_unicode(status_code)
     divider = stem.util.str_tools._to_unicode(divider)
-
-    # Most controller responses are single lines, in which case we don't need
-    # so much overhead.
 
     if first_line:
       if divider == ' ':
@@ -767,11 +776,17 @@ def recv_message_from_bytes_io(reader: BinaryIO, arrived_at: Optional[float] = N
           line = reader.readline()
           raw_content += line
         except socket.error as exc:
-          log.info(ERROR_MSG % ('SocketClosed', 'received an exception while mid-way through a data reply (exception: "%s", read content: "%s")' % (exc, log.escape(bytes(raw_content).decode('utf-8')))))
+          log.info(ERROR_MSG % (
+              'SocketClosed',
+              f"""received an exception while mid-way through a data reply (exception: "{exc}", read content: "{log.escape(bytes(raw_content).decode('utf-8'))}")""",
+          ))
           raise stem.SocketClosed(exc)
 
         if not line.endswith(b'\r\n'):
-          log.info(ERROR_MSG % ('ProtocolError', 'CRLF linebreaks missing from a data reply, "%s"' % log.escape(bytes(raw_content).decode('utf-8'))))
+          log.info(ERROR_MSG % (
+              'ProtocolError',
+              f"""CRLF linebreaks missing from a data reply, "{log.escape(bytes(raw_content).decode('utf-8'))}\"""",
+          ))
           raise stem.ProtocolError('All lines should end with CRLF')
         elif line == b'.\r\n':
           break  # data block termination
@@ -795,7 +810,9 @@ def recv_message_from_bytes_io(reader: BinaryIO, arrived_at: Optional[float] = N
       # be safe...
 
       log.warn(ERROR_MSG % ('ProtocolError', "\"%s\" isn't a recognized divider type" % divider))
-      raise stem.ProtocolError("Unrecognized divider type '%s': %s" % (divider, stem.util.str_tools._to_unicode(line)))
+      raise stem.ProtocolError(
+          f"Unrecognized divider type '{divider}': {stem.util.str_tools._to_unicode(line)}"
+      )
 
 
 def send_formatting(message: str) -> str:

@@ -141,7 +141,7 @@ class TestCell(unittest.TestCase):
     self.assertRaisesWith(ValueError, 'RELAY cells require a circuit identifier', RelayCell._pack, 5, b'', circ_id = None)
 
     for circ_id in (0, -1, -50):
-      expected_msg = 'Circuit identifiers must a positive integer, not %s' % circ_id
+      expected_msg = f'Circuit identifiers must a positive integer, not {circ_id}'
       self.assertRaisesWith(ValueError, expected_msg, RelayCell._pack, 5, b'', circ_id = circ_id)
 
   def test_unpack_for_new_link(self):

@@ -92,7 +92,7 @@ class TestCollector(unittest.TestCase):
 
   def _test_index(self, compression):
     if compression and not compression.available:
-      self.skipTest('(%s unavailable)' % compression)
+      self.skipTest(f'({compression} unavailable)')
 
     collector = stem.descriptor.collector.CollecTor()
     index = collector.index(compression = compression)

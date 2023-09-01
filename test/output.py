@@ -101,17 +101,12 @@ def thread_stacktraces():
   :returns: **dict** that maps thread names to their stacktrace
   """
 
-  stacktraces = {}
-
-  for thread in threading.enumerate():
-    frame = sys._current_frames().get(thread.ident, None)
-
-    if frame:
-      stacktraces[thread.name] = ''.join(traceback.format_stack(frame))
-    else:
-      stacktraces[thread.name] = 'No traceback available'
-
-  return stacktraces
+  return {
+      thread.name: ''.join(traceback.format_stack(frame)) if
+      (frame := sys._current_frames().get(thread.ident,
+                                          None)) else 'No traceback available'
+      for thread in threading.enumerate()
+  }
 
 
 def apply_filters(testing_output, *filters):
@@ -132,14 +127,10 @@ def apply_filters(testing_output, *filters):
   results = []
 
   for line in testing_output.splitlines():
-    # determine the type of the line
-    line_type = LineType.CONTENT
-
-    for ending in LINE_ENDINGS:
-      if ending in line:
-        line_type = LINE_ENDINGS[ending]
-        break
-
+    line_type = next(
+        (LINE_ENDINGS[ending] for ending in LINE_ENDINGS if ending in line),
+        LineType.CONTENT,
+    )
     for result_filter in filters:
       line = result_filter(line_type, line)
 
@@ -169,9 +160,7 @@ def strip_module(line_type, line_content):
   repetitive, and redundant with the headers.
   """
 
-  m = re.match('.*( \\(test\\..*?\\)).*', line_content)
-
-  if m:
+  if m := re.match('.*( \\(test\\..*?\\)).*', line_content):
     line_content = line_content.replace(m.groups()[0], '', 1)
 
   return line_content
@@ -185,11 +174,9 @@ def runtimes(line_type, line_content):
   m = re.search('(test\\.[^)]*)', line_content)
 
   if m and line_type == LineType.OK:
-    test = '%s.%s' % (m.group(0), line_content.split()[0])
+    test = f'{m.group(0)}.{line_content.split()[0]}'
     runtime = stem.util.test_tools.test_runtimes().get(test)
 
-    if runtime is None:
-      pass
     if runtime >= 1.0:
       line_content = '%s (%0.2fs)' % (line_content, runtime)
     else:
@@ -230,7 +217,7 @@ def align_results(line_type, line_content):
   elif line_type == LineType.SKIPPED:
     new_ending = 'SKIPPED'
   else:
-    assert False, 'Unexpected line type: %s' % line_type
+    assert False, f'Unexpected line type: {line_type}'
     return line_content
 
   if COLOR_SUPPORT:
@@ -279,7 +266,7 @@ class ErrorTracker(object):
     def _error_tracker(line_type, line_content):
       if line_type in (LineType.FAIL, LineType.ERROR):
         if self._category:
-          self._errors.append('[%s] %s' % (self._category, line_content))
+          self._errors.append(f'[{self._category}] {line_content}')
         else:
           self._errors.append(line_content)
 
@@ -296,8 +283,7 @@ class ErrorTracker(object):
     return self._error_modules
 
   def __iter__(self):
-    for error_line in self._errors:
-      yield error_line
+    yield from self._errors
 
 
 def _flatten(seq):

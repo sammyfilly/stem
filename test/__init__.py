@@ -13,6 +13,7 @@ Unit and integration tests for the stem library. Helpers include...
   tor_version - provides the version of tor we're testing against
 """
 
+
 import collections
 import itertools
 import os
@@ -71,10 +72,8 @@ GIT_IGNORE_PATH = os.path.join(STEM_BASE, '.gitignore')
 
 if os.path.exists(GIT_IGNORE_PATH):
   with open(GIT_IGNORE_PATH) as ignore_file:
-    for line in ignore_file:
-      if line.startswith('*.'):
-        IGNORED_FILE_TYPES.append(line[2:].strip())
-
+    IGNORED_FILE_TYPES.extend(line[2:].strip() for line in ignore_file
+                              if line.startswith('*.'))
 if os.path.exists(os.path.join(STEM_BASE, '.travis.yml')):
     IGNORED_FILE_TYPES.append('.travis.yml')
 

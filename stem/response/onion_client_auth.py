@@ -25,14 +25,16 @@ class OnionClientAuthViewResponse(stem.response.ControlMessage):
     self.credentials = {}
 
     if not self.is_ok():
-      raise stem.ProtocolError("ONION_CLIENT_AUTH_VIEW response didn't have an OK status: %s" % self)
+      raise stem.ProtocolError(
+          f"ONION_CLIENT_AUTH_VIEW response didn't have an OK status: {self}")
 
     # first line optionally contains the service id this request was for
 
     first_line = list(self)[0]
 
     if not first_line.startswith('ONION_CLIENT_AUTH_VIEW'):
-      raise stem.ProtocolError("Response should begin with 'ONION_CLIENT_AUTH_VIEW': %s" % self)
+      raise stem.ProtocolError(
+          f"Response should begin with 'ONION_CLIENT_AUTH_VIEW': {self}")
     elif ' ' in first_line:
       self.requested = first_line.split(' ')[1]
 
@@ -40,11 +42,16 @@ class OnionClientAuthViewResponse(stem.response.ControlMessage):
       attributes = credential_line.split(' ')
 
       if len(attributes) < 3:
-        raise stem.ProtocolError('ONION_CLIENT_AUTH_VIEW lines must contain an address and credential: %s' % self)
+        raise stem.ProtocolError(
+            f'ONION_CLIENT_AUTH_VIEW lines must contain an address and credential: {self}'
+        )
       elif attributes[0] != 'CLIENT':
-        raise stem.ProtocolError("ONION_CLIENT_AUTH_VIEW lines should begin with 'CLIENT': %s" % self)
+        raise stem.ProtocolError(
+            f"ONION_CLIENT_AUTH_VIEW lines should begin with 'CLIENT': {self}")
       elif ':' not in attributes[2]:
-        raise stem.ProtocolError("ONION_CLIENT_AUTH_VIEW credentials must be of the form 'encryption_type:key': %s" % self)
+        raise stem.ProtocolError(
+            f"ONION_CLIENT_AUTH_VIEW credentials must be of the form 'encryption_type:key': {self}"
+        )
 
       service_id = attributes[1]
       key_type, private_key = attributes[2].split(':', 1)
@@ -53,7 +60,8 @@ class OnionClientAuthViewResponse(stem.response.ControlMessage):
 
       for attr in attributes[2:]:
         if '=' not in attr:
-          raise stem.ProtocolError("'%s' expected to be a 'key=value' mapping: %s" % (attr, self))
+          raise stem.ProtocolError(
+              f"'{attr}' expected to be a 'key=value' mapping: {self}")
 
         key, value = attr.split('=', 1)
 

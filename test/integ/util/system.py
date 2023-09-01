@@ -536,8 +536,11 @@ class TestSystem(unittest.TestCase):
     home_dir, username = os.path.expanduser('~'), getpass.getuser()
     self.assertEqual(home_dir, stem.util.system.expand_path('~'))
     self.assertEqual(home_dir, stem.util.system.expand_path('~/'))
-    self.assertEqual(home_dir, stem.util.system.expand_path('~%s' % username))
-    self.assertEqual(os.path.join(home_dir, 'foo'), stem.util.system.expand_path('~%s/foo' % username))
+    self.assertEqual(home_dir, stem.util.system.expand_path(f'~{username}'))
+    self.assertEqual(
+        os.path.join(home_dir, 'foo'),
+        stem.util.system.expand_path(f'~{username}/foo'),
+    )
 
   def test_call_timeout(self):
     self.assertRaisesWith(stem.util.system.CallTimeoutError, "Process didn't finish after 0.0 seconds", stem.util.system.call, 'sleep 1', timeout = 0.001)

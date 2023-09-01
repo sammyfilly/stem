@@ -68,10 +68,8 @@ class SocksError(ProxyError):
     self.code = code
 
   def __str__(self):
-    code = 0x01
-    if self.code in self._ERROR_MESSAGE:
-      code = self.code
-    return '[%s] %s' % (code, self._ERROR_MESSAGE[code])
+    code = self.code if self.code in self._ERROR_MESSAGE else 0x01
+    return f'[{code}] {self._ERROR_MESSAGE[code]}'
 
 
 class Socks(socket.socket):
@@ -160,7 +158,7 @@ class Socks(socket.socket):
     :returns: **list** of ints
     """
 
-    return tuple([x for x in bytes_])
+    return tuple(list(bytes_))
 
   def _pack_string(self, string_):
     """
@@ -171,7 +169,7 @@ class Socks(socket.socket):
     :returns: **bytes** for the requested content
     """
 
-    return struct.pack('>%ss' % len(string_), string_.encode())
+    return struct.pack(f'>{len(string_)}s', string_.encode())
 
   def connect(self, address):
     """
@@ -239,7 +237,7 @@ def negotiate_socks(sock, host, port):
   sock.sendall(request)
   response = sock.recv(8)
 
-  if len(response) != 8 or response[0:2] != b'\x00\x5a':
+  if len(response) != 8 or response[:2] != b'\x00\x5a':
     sock.close()
     raise stem.ProtocolError(ERROR_MSG.get(response[1], 'SOCKS server returned unrecognized error code'))
 

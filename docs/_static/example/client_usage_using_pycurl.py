@@ -26,7 +26,7 @@ def query(url):
     query.perform()
     return output.getvalue()
   except pycurl.error as exc:
-    return 'Unable to reach %s (%s)' % (url, exc)
+    return f'Unable to reach {url} ({exc})'
 
 
 # Start an instance of Tor configured to only exit through Russia. This prints

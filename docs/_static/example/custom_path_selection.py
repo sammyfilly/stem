@@ -35,7 +35,7 @@ def query(url):
     query.perform()
     return output.getvalue()
   except pycurl.error as exc:
-    raise ValueError('Unable to reach %s (%s)' % (url, exc))
+    raise ValueError(f'Unable to reach {url} ({exc})')
 
 
 def scan(controller, path):
@@ -77,4 +77,4 @@ with stem.control.Controller.from_port() as controller:
       time_taken = scan(controller, [fingerprint, EXIT_FINGERPRINT])
       print('%s => %0.2f seconds' % (fingerprint, time_taken))
     except Exception as exc:
-      print('%s => %s' % (fingerprint, exc))
+      print(f'{fingerprint} => {exc}')

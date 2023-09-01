@@ -64,7 +64,10 @@ TpQQk3nNQF8z6UIvdlvP+DnJV4izWVkQEZgUZgIVM0E=
       self.assertEqual('18.244.0.114', router1.address)
       self.assertEqual(443, router1.or_port)
       self.assertEqual(80, router1.dir_port)
-      self.assertEqual(set(['Authority', 'Fast', 'Named', 'Running', 'Valid', 'V2Dir']), set(router1.flags))
+      self.assertEqual(
+          {'Authority', 'Fast', 'Named', 'Running', 'Valid', 'V2Dir'},
+          set(router1.flags),
+      )
 
       router2 = document.routers['0928BA467056C4A689FEE4EF5D71482B6289C3D5']
       self.assertEqual('stnv', router2.nickname)
@@ -74,7 +77,7 @@ TpQQk3nNQF8z6UIvdlvP+DnJV4izWVkQEZgUZgIVM0E=
       self.assertEqual('84.16.236.173', router2.address)
       self.assertEqual(9001, router2.or_port)
       self.assertEqual(None, router2.dir_port)
-      self.assertEqual(set(['Named', 'Valid']), set(router2.flags))
+      self.assertEqual({'Named', 'Valid'}, set(router2.flags))
 
       router3 = document.routers['09E8582FF0E6F85E2B8E41C0DC0B9C9DC46E6968']
       self.assertEqual('nggrplz', router3.nickname)
@@ -84,7 +87,7 @@ TpQQk3nNQF8z6UIvdlvP+DnJV4izWVkQEZgUZgIVM0E=
       self.assertEqual('194.109.109.109', router3.address)
       self.assertEqual(9001, router3.or_port)
       self.assertEqual(None, router3.dir_port)
-      self.assertEqual(set(['Fast', 'Stable', 'Running', 'Valid']), set(router3.flags))
+      self.assertEqual({'Fast', 'Stable', 'Running', 'Valid'}, set(router3.flags))
 
   def test_minimal_document(self):
     """

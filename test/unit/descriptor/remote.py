@@ -204,7 +204,9 @@ class TestDescriptorDownloader(unittest.TestCase):
     self.assertEqual('moria1', descriptors[0].nickname)
 
   def test_gzip_url_override(self):
-    query = stem.descriptor.remote.Query(TEST_RESOURCE + '.z', compression = Compression.PLAINTEXT, start = False)
+    query = stem.descriptor.remote.Query(f'{TEST_RESOURCE}.z',
+                                         compression=Compression.PLAINTEXT,
+                                         start=False)
     self.assertEqual([stem.descriptor.Compression.GZIP], query.compression)
     self.assertEqual(TEST_RESOURCE, query.resource)
 
@@ -290,19 +292,18 @@ class TestDescriptorDownloader(unittest.TestCase):
     Surface level exercising of each getter method for downloading descriptors.
     """
 
-    queries = []
-
     downloader = stem.descriptor.remote.get_instance()
 
-    queries.append(downloader.get_server_descriptors())
-    queries.append(downloader.get_extrainfo_descriptors())
-    queries.append(downloader.get_microdescriptors('test-hash'))
-    queries.append(downloader.get_consensus())
-    queries.append(downloader.get_vote(stem.directory.Authority.from_cache()['moria1']))
-    queries.append(downloader.get_key_certificates())
-    queries.append(downloader.get_bandwidth_file())
-    queries.append(downloader.get_detached_signatures())
-
+    queries = [
+        downloader.get_server_descriptors(),
+        downloader.get_extrainfo_descriptors(),
+        downloader.get_microdescriptors('test-hash'),
+        downloader.get_consensus(),
+        downloader.get_vote(stem.directory.Authority.from_cache()['moria1']),
+        downloader.get_key_certificates(),
+        downloader.get_bandwidth_file(),
+        downloader.get_detached_signatures(),
+    ]
     for query in queries:
       query.stop()
 
@@ -340,7 +341,8 @@ class TestDescriptorDownloader(unittest.TestCase):
     }
 
     for endpoints, error_suffix in invalid_endpoints.items():
-      expected_error = 'Endpoints must be an stem.ORPort or stem.DirPort. ' + error_suffix
+      expected_error = (
+          f'Endpoints must be an stem.ORPort or stem.DirPort. {error_suffix}')
       self.assertRaisesWith(ValueError, expected_error, stem.descriptor.remote.Query, TEST_RESOURCE, 'server-descriptor 1.0', endpoints = endpoints)
 
   @mock_download(TEST_DESCRIPTOR)

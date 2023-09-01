@@ -11,7 +11,7 @@ def measure_average_advertised_bandwidth(path):
     count += 1
 
   runtime = time.time() - start_time
-  print("Finished measure_average_advertised_bandwidth('%s')" % path)
+  print(f"Finished measure_average_advertised_bandwidth('{path}')")
   print('  Total time: %i seconds' % runtime)
   print('  Processed server descriptors: %i' % count)
   print('  Average advertised bandwidth: %i' % (total_bw / count))

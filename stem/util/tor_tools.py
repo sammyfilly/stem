@@ -163,7 +163,9 @@ def is_valid_hidden_service_address(entry: str, version: Optional[Union[int, Seq
   elif isinstance(version, int):
     version = [version]
   elif not isinstance(version, (list, tuple)):
-    raise ValueError('Hidden service version must be an integer or list, not a %s' % type(version).__name__)
+    raise ValueError(
+        f'Hidden service version must be an integer or list, not a {type(version).__name__}'
+    )
 
   try:
     if 2 in version and bool(HS_V2_ADDRESS_PATTERN.match(entry)):

@@ -72,10 +72,8 @@ MYPY_UNAVAILABLE = 'Type checks require mypy. Please install it from...\n  http:
 
 
 def _check_stem_version():
-  commit = _git_commit(os.path.join(test.STEM_BASE, '.git'))
-
-  if commit:
-    return '%s (commit %s)' % (stem.__version__, commit[:8])
+  if commit := _git_commit(os.path.join(test.STEM_BASE, '.git')):
+    return f'{stem.__version__} (commit {commit[:8]})'
   else:
     return stem.__version__
 
@@ -85,7 +83,7 @@ def _check_tor_version(tor_path):
   version_str = str(version).split()[0]
 
   if version.git_commit:
-    return '%s (commit %s)' % (version_str, version.git_commit[:8])
+    return f'{version_str} (commit {version.git_commit[:8]})'
   else:
     return version_str
 
@@ -94,7 +92,7 @@ def _check_python_version():
   interpreter = platform.python_implementation()
   version = platform.python_version()
 
-  return version if interpreter == 'CPython' else '%s (%s)' % (interpreter, version)
+  return version if interpreter == 'CPython' else f'{interpreter} ({version})'
 
 
 def _git_commit(git_dir):
@@ -124,7 +122,7 @@ def _check_platform_version():
   else:
     extra = None
 
-  return '%s (%s)' % (platform.system(), extra) if extra else platform.system()
+  return f'{platform.system()} ({extra})' if extra else platform.system()
 
 
 def _clean_orphaned_pyc(paths):
@@ -134,7 +132,10 @@ def _clean_orphaned_pyc(paths):
   :param list paths: paths to search for orphaned pyc files
   """
 
-  return ['removed %s' % path for path in stem.util.test_tools.clean_orphaned_pyc(paths)]
+  return [
+      f'removed {path}'
+      for path in stem.util.test_tools.clean_orphaned_pyc(paths)
+  ]
 
 
 def _remove_tor_data_dir():
@@ -187,13 +188,13 @@ def _check_for_unused_tests(paths):
       with open(py_path) as f:
         file_contents = f.read()
 
-      test_match = re.search('^class (\\S*)\\(unittest.TestCase\\):$', file_contents, re.MULTILINE)
-
-      if test_match:
+      if test_match := re.search('^class (\\S*)\\(unittest.TestCase\\):$',
+                                 file_contents, re.MULTILINE):
         class_name = test_match.groups()[0]
         module_name = py_path.replace(os.path.sep, '.')[len(test.STEM_BASE) + 1:-3] + '.' + class_name
 
-        if not (module_name in CONFIG['test.unit_tests'] or module_name in CONFIG['test.integ_tests']):
+        if (module_name not in CONFIG['test.unit_tests']
+            and module_name not in CONFIG['test.integ_tests']):
           unused_tests.append(module_name)
 
   if unused_tests:
@@ -250,7 +251,7 @@ class Task(object):
 
   def run(self):
     start_time = time.time()
-    println('  %s...' % self.label, STATUS, NO_NL)
+    println(f'  {self.label}...', STATUS, NO_NL)
 
     padding = TASK_DESCRIPTION_WIDTH - len(self.label)
     println(' ' * padding, NO_NL)
@@ -273,7 +274,7 @@ class Task(object):
 
       if self.print_result and isinstance(self.result, (list, tuple)):
         for line in self.result:
-          println('    %s' % line, STATUS)
+          println(f'    {line}', STATUS)
     except Exception as exc:
       output_msg = str(exc)
 
@@ -313,10 +314,9 @@ class StaticCheckTask(Task):
   def run(self):
     if self.is_available:
       return super(StaticCheckTask, self).run()
-    else:
-      println('  %s...' % self.label, STATUS, NO_NL)
-      println(' ' * (TASK_DESCRIPTION_WIDTH - len(self.label)), NO_NL)
-      println('unavailable', STATUS)
+    println(f'  {self.label}...', STATUS, NO_NL)
+    println(' ' * (TASK_DESCRIPTION_WIDTH - len(self.label)), NO_NL)
+    println('unavailable', STATUS)
 
 
 STEM_VERSION = Task('stem version', _check_stem_version)

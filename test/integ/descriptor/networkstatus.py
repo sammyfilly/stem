@@ -68,7 +68,7 @@ class TestNetworkStatus(unittest.TestCase):
     # case then this probably isn't a real, complete tor consensus.
 
     if count < 100:
-      raise AssertionError('%s only included %s relays' % (consensus_path, count))
+      raise AssertionError(f'{consensus_path} only included {count} relays')
 
   @asynchronous
   def test_cached_microdesc_consensus(test_dir):
@@ -98,4 +98,4 @@ class TestNetworkStatus(unittest.TestCase):
           test.register_new_capability('Microdescriptor Consensus Line', line, suppression_token = line.split()[0])
 
     if count < 100:
-      raise AssertionError('%s only included %s relays' % (consensus_path, count))
+      raise AssertionError(f'{consensus_path} only included {count} relays')

@@ -6,6 +6,7 @@
 Caches tor's latest manual content. Run this to pick new man page changes.
 """
 
+
 import re
 import sys
 import urllib.request
@@ -21,17 +22,19 @@ if __name__ == '__main__':
     man_log_page = urllib.request.urlopen(GITWEB_MAN_LOG).read()
     man_commit = re.search(MAN_LOG_LINK, man_log_page).group(1).decode('utf-8')
   except:
-    print("Unable to determine the latest commit to edit tor's man page: %s" % sys.exc_info()[1])
+    print(
+        f"Unable to determine the latest commit to edit tor's man page: {sys.exc_info()[1]}"
+    )
     sys.exit(1)
 
   try:
     stem_commit = stem.util.system.call('git rev-parse HEAD')[0]
   except OSError as exc:
-    print("Unable to determine stem's current commit: %s" % exc)
+    print(f"Unable to determine stem's current commit: {exc}")
     sys.exit(1)
 
-  print('Latest tor commit editing man page: %s' % man_commit)
-  print('Current stem commit: %s' % stem_commit)
+  print(f'Latest tor commit editing man page: {man_commit}')
+  print(f'Current stem commit: {stem_commit}')
   print('')
 
   try:
@@ -43,7 +46,9 @@ if __name__ == '__main__':
     cached_manual, db_schema = None, None  # local copy has been deleted
 
   if db_schema != stem.manual.SCHEMA_VERSION:
-    print('Cached database schema is out of date (was %s, but current version is %s)' % (db_schema, stem.manual.SCHEMA_VERSION))
+    print(
+        f'Cached database schema is out of date (was {db_schema}, but current version is {stem.manual.SCHEMA_VERSION})'
+    )
     cached_manual = None
 
   latest_manual = stem.manual.Manual.from_remote()

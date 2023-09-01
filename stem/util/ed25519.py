@@ -162,7 +162,7 @@ Bpow = []
 
 def make_Bpow():
     P = B
-    for i in range(253):
+    for _ in range(253):
         Bpow.append(P)
         P = edwards_double(P)
 make_Bpow()
@@ -185,10 +185,12 @@ def scalarmult_B(e):
 
 def encodeint(y):
     bits = [(y >> i) & 1 for i in range(b)]
-    return b''.join([
-        int2byte(sum([bits[i * 8 + j] << j for j in range(8)]))
-        for i in range(b//8)
-    ])
+    return b''.join(
+        [
+            int2byte(sum(bits[i * 8 + j] << j for j in range(8)))
+            for i in range(b // 8)
+        ]
+    )
 
 
 def encodepoint(P):
@@ -197,10 +199,12 @@ def encodepoint(P):
     x = (x * zi) % q
     y = (y * zi) % q
     bits = [(y >> i) & 1 for i in range(b - 1)] + [x & 1]
-    return b''.join([
-        int2byte(sum([bits[i * 8 + j] << j for j in range(8)]))
-        for i in range(b // 8)
-    ])
+    return b''.join(
+        [
+            int2byte(sum(bits[i * 8 + j] << j for j in range(8)))
+            for i in range(b // 8)
+        ]
+    )
 
 
 def bit(h, i):
@@ -232,9 +236,7 @@ def signature_unsafe(m, sk, pk):
     """
     h = H(sk)
     a = 2 ** (b - 2) + sum(2 ** i * bit(h, i) for i in range(3, b - 2))
-    r = Hint(
-        bytes([operator.getitem(h, j) for j in range(b // 8, b // 4)]) + m
-    )
+    r = Hint(bytes(operator.getitem(h, j) for j in range(b // 8, b // 4)) + m)
     R = scalarmult_B(r)
     S = (r + Hint(encodepoint(R) + pk + m) * a) % l
     return encodepoint(R) + encodeint(S)

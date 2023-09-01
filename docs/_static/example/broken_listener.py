@@ -6,7 +6,6 @@ from stem.control import EventType, Controller
 def broken_handler(event):
   print('start of broken_handler')
   raise ValueError('boom')
-  print('end of broken_handler')
 
 
 with Controller.from_port() as controller:

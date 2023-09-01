@@ -337,7 +337,9 @@ def _parse_file(document_file: BinaryIO, document_type: Optional[Type] = None, v
     yield document_type(document_file.read(), validate, **kwargs)
     return
   else:
-    raise ValueError("Document type %s isn't recognized (only able to parse v2, v3, and bridge)" % document_type)
+    raise ValueError(
+        f"Document type {document_type} isn't recognized (only able to parse v2, v3, and bridge)"
+    )
 
   if document_handler == DocumentHandler.DOCUMENT:
     yield document_type(document_file.read(), validate, **kwargs)  # type: ignore
@@ -360,21 +362,17 @@ def _parse_file(document_file: BinaryIO, document_type: Optional[Type] = None, v
   if document_handler == DocumentHandler.BARE_DOCUMENT:
     yield document_type(document_content, validate, **kwargs)  # type: ignore
   elif document_handler == DocumentHandler.ENTRIES:
-    desc_iterator = stem.descriptor.router_status_entry._parse_file(
-      document_file,
-      validate,
-      entry_class = router_type,
-      entry_keyword = ROUTERS_START,
-      start_position = routers_start,
-      end_position = routers_end,
-      extra_args = (document_type(document_content, validate),),
-      **kwargs
-    )
-
-    for desc in desc_iterator:
-      yield desc
+    yield from stem.descriptor.router_status_entry._parse_file(
+        document_file,
+        validate,
+        entry_class=router_type,
+        entry_keyword=ROUTERS_START,
+        start_position=routers_start,
+        end_position=routers_end,
+        extra_args=(document_type(document_content, validate), ),
+        **kwargs)
   else:
-    raise ValueError('Unrecognized document_handler: %s' % document_handler)
+    raise ValueError(f'Unrecognized document_handler: {document_handler}')
 
 
 def _parse_file_key_certs(certificate_file: BinaryIO, validate: bool = False) -> Iterator['stem.descriptor.networkstatus.KeyCertificate']:
@@ -423,9 +421,9 @@ def _parse_file_detached_sigs(detached_signature_file: BinaryIO, validate: bool 
   """
 
   while True:
-    detached_sig_content = _read_until_keywords('consensus-digest', detached_signature_file, ignore_first = True)
-
-    if detached_sig_content:
+    if detached_sig_content := _read_until_keywords('consensus-digest',
+                                                    detached_signature_file,
+                                                    ignore_first=True):
       yield stem.descriptor.networkstatus.DetachedSignature(bytes.join(b'', detached_sig_content), validate = validate)
     else:
       break  # done parsing file
@@ -460,7 +458,9 @@ class NetworkStatusDocument(Descriptor):
     elif hash_type == DigestHash.SHA256:
       return stem.descriptor._encode_digest(hashlib.sha256(content), encoding)
     else:
-      raise NotImplementedError('Network status document digests are only available in sha1 and sha256, not %s' % hash_type)
+      raise NotImplementedError(
+          f'Network status document digests are only available in sha1 and sha256, not {hash_type}'
+      )
 
 
 def _parse_version_line(keyword: str, attribute: str, expected_version: int) -> Callable[['stem.descriptor.Descriptor', ENTRY_TYPE], None]:
@@ -468,7 +468,7 @@ def _parse_version_line(keyword: str, attribute: str, expected_version: int) -> 
     value = _value(keyword, entries)
 
     if not value.isdigit():
-      raise ValueError('Document has a non-numeric version: %s %s' % (keyword, value))
+      raise ValueError(f'Document has a non-numeric version: {keyword} {value}')
 
     setattr(descriptor, attribute, int(value))
 
@@ -483,15 +483,19 @@ def _parse_dir_source_line(descriptor: 'stem.descriptor.Descriptor', entries: EN
   dir_source_comp = value.split()
 
   if len(dir_source_comp) < 3:
-    raise ValueError("The 'dir-source' line of a v2 network status document must have three values: dir-source %s" % value)
+    raise ValueError(
+        f"The 'dir-source' line of a v2 network status document must have three values: dir-source {value}"
+    )
 
   if not dir_source_comp[0]:
     # https://gitlab.torproject.org/tpo/core/tor/-/issues/7055
-    raise ValueError("Authority's hostname can't be blank: dir-source %s" % value)
+    raise ValueError(f"Authority's hostname can't be blank: dir-source {value}")
   elif not stem.util.connection.is_valid_ipv4_address(dir_source_comp[1]):
-    raise ValueError("Authority's address isn't a valid IPv4 address: %s" % dir_source_comp[1])
+    raise ValueError(
+        f"Authority's address isn't a valid IPv4 address: {dir_source_comp[1]}"
+    )
   elif not stem.util.connection.is_valid_port(dir_source_comp[2], allow_zero = True):
-    raise ValueError("Authority's DirPort is invalid: %s" % dir_source_comp[2])
+    raise ValueError(f"Authority's DirPort is invalid: {dir_source_comp[2]}")
 
   descriptor.hostname = dir_source_comp[0]
   descriptor.address = dir_source_comp[1]
@@ -505,7 +509,9 @@ def _parse_additional_digests(descriptor: 'stem.descriptor.Descriptor', entries:
     comp = val.split(' ')
 
     if len(comp) < 3:
-      raise ValueError("additional-digest lines should be of the form 'additional-digest [flavor] [algname] [digest]' but was: %s" % val)
+      raise ValueError(
+          f"additional-digest lines should be of the form 'additional-digest [flavor] [algname] [digest]' but was: {val}"
+      )
 
     digests.append(DocumentDigest(*comp[:3]))
 
@@ -519,9 +525,13 @@ def _parse_additional_signatures(descriptor: 'stem.descriptor.Descriptor', entri
     comp = val.split(' ')
 
     if len(comp) < 4:
-      raise ValueError("additional-signature lines should be of the form 'additional-signature [flavor] [algname] [identity] [signing_key_digest]' but was: %s" % val)
+      raise ValueError(
+          f"additional-signature lines should be of the form 'additional-signature [flavor] [algname] [identity] [signing_key_digest]' but was: {val}"
+      )
     elif not block_contents or block_type != 'SIGNATURE':
-      raise ValueError("'additional-signature' should be followed by a SIGNATURE block, but was a %s" % block_type)
+      raise ValueError(
+          f"'additional-signature' should be followed by a SIGNATURE block, but was a {block_type}"
+      )
 
     signatures.append(DocumentSignature(comp[1], comp[2], comp[3], block_contents, flavor = comp[0], validate = True))
 
@@ -604,16 +614,22 @@ class NetworkStatusDocumentV2(NetworkStatusDocument):
 
   @classmethod
   def content(cls: Type['stem.descriptor.networkstatus.NetworkStatusDocumentV2'], attr: Optional[Mapping[str, str]] = None, exclude: Sequence[str] = ()) -> bytes:
-    return _descriptor_content(attr, exclude, (
-      ('network-status-version', '2'),
-      ('dir-source', '%s %s 80' % (_random_ipv4_address(), _random_ipv4_address())),
-      ('fingerprint', _random_fingerprint()),
-      ('contact', 'arma at mit dot edu'),
-      ('published', _random_date()),
-      ('dir-signing-key', _random_crypto_blob('RSA PUBLIC KEY')),
-    ), (
-      ('directory-signature', 'moria2' + _random_crypto_blob('SIGNATURE')),
-    ))
+    return _descriptor_content(
+        attr,
+        exclude,
+        (
+            ('network-status-version', '2'),
+            (
+                'dir-source',
+                f'{_random_ipv4_address()} {_random_ipv4_address()} 80',
+            ),
+            ('fingerprint', _random_fingerprint()),
+            ('contact', 'arma at mit dot edu'),
+            ('published', _random_date()),
+            ('dir-signing-key', _random_crypto_blob('RSA PUBLIC KEY')),
+        ),
+        (('directory-signature', 'moria2' + _random_crypto_blob('SIGNATURE')), ),
+    )
 
   def __init__(self, raw_content: bytes, validate: bool = False) -> None:
     super(NetworkStatusDocumentV2, self).__init__(raw_content, lazy_load = not validate)
@@ -635,7 +651,7 @@ class NetworkStatusDocumentV2(NetworkStatusDocument):
       extra_args = (self,),
     )
 
-    self.routers = dict((desc.fingerprint, desc) for desc in router_iter)
+    self.routers = {desc.fingerprint: desc for desc in router_iter}
 
     entries = _descriptor_components(document_content + b'\n' + document_file.read(), validate)
 
@@ -646,7 +662,8 @@ class NetworkStatusDocumentV2(NetworkStatusDocument):
       # 'client-versions' and 'server-versions' are only required if 'Versions'
       # is among the options
 
-      if 'Versions' in self.options and not ('client-versions' in entries and 'server-versions' in entries):
+      if 'Versions' in self.options and ('client-versions' not in entries
+                                         or 'server-versions' not in entries):
         raise ValueError("Version 2 network status documents must have a 'client-versions' and 'server-versions' when 'Versions' is listed among its dir-options:\n%s" % str(self))
     else:
       self._entries = entries
@@ -663,7 +680,7 @@ class NetworkStatusDocumentV2(NetworkStatusDocument):
       if keyword in entries and len(entries[keyword]) > 1:
         raise ValueError("Network status document (v2) can only have a single '%s' line, got %i:\n%s" % (keyword, len(entries[keyword]), str(self)))
 
-    if 'network-status-version' != list(entries.keys())[0]:
+    if list(entries.keys())[0] != 'network-status-version':
       raise ValueError("Network status document (v2) are expected to start with a 'network-status-version' line:\n%s" % str(self))
 
 
@@ -672,20 +689,20 @@ def _parse_header_network_status_version_line(descriptor: 'stem.descriptor.Descr
 
   value = _value('network-status-version', entries)
 
-  if ' ' in value:
-    version, flavor = value.split(' ', 1)
-  else:
-    version, flavor = value, 'ns'
-
+  version, flavor = value.split(' ', 1) if ' ' in value else (value, 'ns')
   if not version.isdigit():
-    raise ValueError('Network status document has a non-numeric version: network-status-version %s' % value)
+    raise ValueError(
+        f'Network status document has a non-numeric version: network-status-version {value}'
+    )
 
   descriptor.version = int(version)
   descriptor.version_flavor = flavor
   descriptor.is_microdescriptor = flavor == 'microdesc'
 
   if descriptor.version != 3:
-    raise ValueError("Expected a version 3 network status document, got version '%s' instead" % descriptor.version)
+    raise ValueError(
+        f"Expected a version 3 network status document, got version '{descriptor.version}' instead"
+    )
 
 
 def _parse_header_vote_status_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -702,7 +719,9 @@ def _parse_header_vote_status_line(descriptor: 'stem.descriptor.Descriptor', ent
   elif value == 'vote':
     descriptor.is_consensus, descriptor.is_vote = False, True
   else:
-    raise ValueError("A network status document's vote-status line can only be 'consensus' or 'vote', got '%s' instead" % value)
+    raise ValueError(
+        f"A network status document's vote-status line can only be 'consensus' or 'vote', got '{value}' instead"
+    )
 
 
 def _parse_header_consensus_methods_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -715,7 +734,9 @@ def _parse_header_consensus_methods_line(descriptor: 'stem.descriptor.Descriptor
 
   for entry in value.split(' '):
     if not entry.isdigit():
-      raise ValueError("A network status document's consensus-methods must be a list of integer values, but was '%s'" % value)
+      raise ValueError(
+          f"A network status document's consensus-methods must be a list of integer values, but was '{value}'"
+      )
 
     consensus_methods.append(int(entry))
 
@@ -731,7 +752,9 @@ def _parse_header_consensus_method_line(descriptor: 'stem.descriptor.Descriptor'
   value = _value('consensus-method', entries)
 
   if not value.isdigit():
-    raise ValueError("A network status document's consensus-method must be an integer, but was '%s'" % value)
+    raise ValueError(
+        f"A network status document's consensus-method must be an integer, but was '{value}'"
+    )
 
   descriptor.consensus_method = int(value)
 
@@ -746,7 +769,9 @@ def _parse_header_voting_delay_line(descriptor: 'stem.descriptor.Descriptor', en
     descriptor.vote_delay = int(value_comp[0])
     descriptor.dist_delay = int(value_comp[1])
   else:
-    raise ValueError("A network status document's 'voting-delay' line must be a pair of integer values, but was '%s'" % value)
+    raise ValueError(
+        f"A network status document's 'voting-delay' line must be a pair of integer values, but was '{value}'"
+    )
 
 
 def _parse_versions_line(keyword: str, attribute: str) -> Callable[['stem.descriptor.Descriptor', ENTRY_TYPE], None]:
@@ -757,7 +782,9 @@ def _parse_versions_line(keyword: str, attribute: str) -> Callable[['stem.descri
       try:
         entries.append(stem.version._get_version(entry))
       except ValueError:
-        raise ValueError("Network status document's '%s' line had '%s', which isn't a parsable tor version: %s %s" % (keyword, entry, keyword, value))
+        raise ValueError(
+            f"Network status document's '{keyword}' line had '{entry}', which isn't a parsable tor version: {keyword} {value}"
+        )
 
     setattr(descriptor, attribute, entries)
 
@@ -782,7 +809,9 @@ def _parse_header_flag_thresholds_line(descriptor: 'stem.descriptor.Descriptor',
       else:
         thresholds[key] = int(val)
     except ValueError:
-      raise ValueError("Network status document's 'flag-thresholds' line is expected to have float values, got: flag-thresholds %s" % value)
+      raise ValueError(
+          f"Network status document's 'flag-thresholds' line is expected to have float values, got: flag-thresholds {value}"
+      )
 
   descriptor.flag_thresholds = thresholds
 
@@ -804,12 +833,10 @@ def _parse_header_parameters_line(descriptor: 'stem.descriptor.Descriptor', entr
 
 
 def _parse_directory_footer_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
-  # nothing to parse, simply checking that we don't have a value
-
-  value = _value('directory-footer', entries)
-
-  if value:
-    raise ValueError("A network status document's 'directory-footer' line shouldn't have any content, got 'directory-footer %s'" % value)
+  if value := _value('directory-footer', entries):
+    raise ValueError(
+        f"A network status document's 'directory-footer' line shouldn't have any content, got 'directory-footer {value}'"
+    )
 
 
 def _parse_footer_directory_signature_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -817,10 +844,14 @@ def _parse_footer_directory_signature_line(descriptor: 'stem.descriptor.Descript
 
   for sig_value, block_type, block_contents in entries['directory-signature']:
     if sig_value.count(' ') not in (1, 2):
-      raise ValueError("Authority signatures in a network status document are expected to be of the form 'directory-signature [METHOD] FINGERPRINT KEY_DIGEST', received: %s" % sig_value)
+      raise ValueError(
+          f"Authority signatures in a network status document are expected to be of the form 'directory-signature [METHOD] FINGERPRINT KEY_DIGEST', received: {sig_value}"
+      )
 
     if not block_contents or block_type != 'SIGNATURE':
-      raise ValueError("'directory-signature' should be followed by a SIGNATURE block, but was a %s" % block_type)
+      raise ValueError(
+          f"'directory-signature' should be followed by a SIGNATURE block, but was a {block_type}"
+      )
 
     if sig_value.count(' ') == 1:
       method = 'sha1'  # default if none was provided
@@ -840,7 +871,8 @@ def _parse_package_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY
     value_comp = value.split(' ', 3)
 
     if len(value_comp) < 3:
-      raise ValueError("'package' must at least have a 'PackageName Version URL': %s" % value)
+      raise ValueError(
+          f"'package' must at least have a 'PackageName Version URL': {value}")
 
     name, version, url = value_comp[:3]
     digests = {}
@@ -863,13 +895,17 @@ def _parsed_shared_rand_commit(descriptor: 'stem.descriptor.Descriptor', entries
     value_comp = value.split()
 
     if len(value_comp) < 4:
-      raise ValueError("'shared-rand-commit' must at least have a 'Version AlgName Identity Commit': %s" % value)
+      raise ValueError(
+          f"'shared-rand-commit' must at least have a 'Version AlgName Identity Commit': {value}"
+      )
 
     version, algorithm, identity, commit = value_comp[:4]
     reveal = value_comp[4] if len(value_comp) >= 5 else None
 
     if not version.isdigit():
-      raise ValueError("The version on our 'shared-rand-commit' line wasn't an integer: %s" % value)
+      raise ValueError(
+          f"The version on our 'shared-rand-commit' line wasn't an integer: {value}"
+      )
 
     commitments.append(SharedRandomnessCommitment(int(version), algorithm, identity, commit, reveal))
 
@@ -882,11 +918,12 @@ def _parse_shared_rand_previous_value(descriptor: 'stem.descriptor.Descriptor', 
   value = _value('shared-rand-previous-value', entries)
   value_comp = value.split(' ')
 
-  if len(value_comp) == 2 and value_comp[0].isdigit():
-    descriptor.shared_randomness_previous_reveal_count = int(value_comp[0])
-    descriptor.shared_randomness_previous_value = value_comp[1]
-  else:
-    raise ValueError("A network status document's 'shared-rand-previous-value' line must be a pair of values, the first an integer but was '%s'" % value)
+  if len(value_comp) != 2 or not value_comp[0].isdigit():
+    raise ValueError(
+        f"A network status document's 'shared-rand-previous-value' line must be a pair of values, the first an integer but was '{value}'"
+    )
+  descriptor.shared_randomness_previous_reveal_count = int(value_comp[0])
+  descriptor.shared_randomness_previous_value = value_comp[1]
 
 
 def _parse_shared_rand_current_value(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -895,11 +932,12 @@ def _parse_shared_rand_current_value(descriptor: 'stem.descriptor.Descriptor', e
   value = _value('shared-rand-current-value', entries)
   value_comp = value.split(' ')
 
-  if len(value_comp) == 2 and value_comp[0].isdigit():
-    descriptor.shared_randomness_current_reveal_count = int(value_comp[0])
-    descriptor.shared_randomness_current_value = value_comp[1]
-  else:
-    raise ValueError("A network status document's 'shared-rand-current-value' line must be a pair of values, the first an integer but was '%s'" % value)
+  if len(value_comp) != 2 or not value_comp[0].isdigit():
+    raise ValueError(
+        f"A network status document's 'shared-rand-current-value' line must be a pair of values, the first an integer but was '{value}'"
+    )
+  descriptor.shared_randomness_current_reveal_count = int(value_comp[0])
+  descriptor.shared_randomness_current_value = value_comp[1]
 
 
 def _parse_bandwidth_file_headers(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -909,11 +947,7 @@ def _parse_bandwidth_file_headers(descriptor: 'stem.descriptor.Descriptor', entr
   # Value ::= ArgumentChar+
 
   value = _value('bandwidth-file-headers', entries)
-  results = {}
-
-  for key, val in _mappings_for('bandwidth-file-headers', value):
-    results[key] = val
-
+  results = dict(_mappings_for('bandwidth-file-headers', value))
   descriptor.bandwidth_file_headers = results
 
 
@@ -921,11 +955,7 @@ def _parse_bandwidth_file_digest(descriptor: 'stem.descriptor.Descriptor', entri
   # "bandwidth-file-digest" 1*(SP algorithm "=" digest)
 
   value = _value('bandwidth-file-digest', entries)
-  results = {}
-
-  for key, val in _mappings_for('bandwidth-file-digest', value):
-    results[key] = val
-
+  results = dict(_mappings_for('bandwidth-file-digest', value))
   descriptor.bandwidth_file_digest = results
 
 
@@ -1119,26 +1149,37 @@ class NetworkStatusDocumentV3(NetworkStatusDocument):
       elif k not in attr:
         attr[k] = v
 
-    desc_content = _descriptor_content(attr, exclude, (
-      ('network-status-version', '3'),
-      ('vote-status', 'consensus'),
-      ('consensus-methods', None),
-      ('consensus-method', None),
-      ('published', None),
-      ('valid-after', _random_date()),
-      ('fresh-until', _random_date()),
-      ('valid-until', _random_date()),
-      ('voting-delay', '300 300'),
-      ('client-versions', None),
-      ('server-versions', None),
-      ('package', None),
-      ('known-flags', 'Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid'),
-      ('params', None),
-    ), (
-      ('directory-footer', ''),
-      ('bandwidth-weights', None),
-      ('directory-signature', '%s %s%s' % (_random_fingerprint(), _random_fingerprint(), _random_crypto_blob('SIGNATURE'))),
-    ))
+    desc_content = _descriptor_content(
+        attr,
+        exclude,
+        (
+            ('network-status-version', '3'),
+            ('vote-status', 'consensus'),
+            ('consensus-methods', None),
+            ('consensus-method', None),
+            ('published', None),
+            ('valid-after', _random_date()),
+            ('fresh-until', _random_date()),
+            ('valid-until', _random_date()),
+            ('voting-delay', '300 300'),
+            ('client-versions', None),
+            ('server-versions', None),
+            ('package', None),
+            (
+                'known-flags',
+                'Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid',
+            ),
+            ('params', None),
+        ),
+        (
+            ('directory-footer', ''),
+            ('bandwidth-weights', None),
+            (
+                'directory-signature',
+                f"{_random_fingerprint()} {_random_fingerprint()}{_random_crypto_blob('SIGNATURE')}",
+            ),
+        ),
+    )
 
     # inject the authorities and/or routers between the header and footer
 
@@ -1162,8 +1203,7 @@ class NetworkStatusDocumentV3(NetworkStatusDocument):
       elif b'directory-signature' in desc_content:
         footer_div = desc_content.find(b'\ndirectory-signature') + 1
       else:
-        if routers:
-          desc_content += b'\n'
+        desc_content += b'\n'
 
         footer_div = len(desc_content) + 1
 
@@ -1217,7 +1257,7 @@ class NetworkStatusDocumentV3(NetworkStatusDocument):
       extra_args = (self,),
     )
 
-    self.routers = dict((desc.fingerprint, desc) for desc in router_iter)
+    self.routers = {desc.fingerprint: desc for desc in router_iter}
     self._footer(document_file, validate)
 
   def type_annotation(self) -> 'stem.descriptor.TypeAnnotation':
@@ -1323,9 +1363,9 @@ class NetworkStatusDocumentV3(NetworkStatusDocument):
   def _header(self, document_file: BinaryIO, validate: bool) -> None:
     content = bytes.join(b'', _read_until_keywords((AUTH_START, ROUTERS_START, FOOTER_START), document_file))
     entries = _descriptor_components(content, validate)
-    header_fields = [attr[0] for attr in HEADER_STATUS_DOCUMENT_FIELDS]
-
     if validate:
+      header_fields = [attr[0] for attr in HEADER_STATUS_DOCUMENT_FIELDS]
+
       # all known header fields can only appear once except
 
       for keyword, values in list(entries.items()):
@@ -1356,15 +1396,15 @@ class NetworkStatusDocumentV3(NetworkStatusDocument):
 
   def _footer(self, document_file: BinaryIO, validate: bool) -> None:
     entries = _descriptor_components(document_file.read(), validate)
-    footer_fields = [attr[0] for attr in FOOTER_STATUS_DOCUMENT_FIELDS]
-
     if validate:
+      footer_fields = [attr[0] for attr in FOOTER_STATUS_DOCUMENT_FIELDS]
+
       for keyword, values in list(entries.items()):
         # all known footer fields can only appear once except...
         # * 'directory-signature' in a consensus
 
         if len(values) > 1 and keyword in footer_fields:
-          if not (keyword == 'directory-signature' and self.is_consensus):
+          if keyword != 'directory-signature' or not self.is_consensus:
             raise ValueError("Network status documents can only have a single '%s' line, got %i" % (keyword, len(values)))
 
       self._parse(entries, validate, parser_for_line = self._FOOTER_PARSER_FOR_LINE)
@@ -1377,9 +1417,8 @@ class NetworkStatusDocumentV3(NetworkStatusDocument):
         if self.meets_consensus_method(9):
           if list(entries.keys())[0] != 'directory-footer':
             raise ValueError("Network status document's footer should start with a 'directory-footer' line in consensus-method 9 or later")
-        else:
-          if list(entries.keys())[0] != 'directory-signature':
-            raise ValueError("Network status document's footer should start with a 'directory-signature' line prior to consensus-method 9")
+        elif list(entries.keys())[0] != 'directory-signature':
+          raise ValueError("Network status document's footer should start with a 'directory-signature' line prior to consensus-method 9")
 
         _check_for_missing_and_disallowed_fields(self, entries, FOOTER_STATUS_DOCUMENT_FIELDS)
     else:
@@ -1432,10 +1471,14 @@ def _check_for_missing_and_disallowed_fields(document: 'stem.descriptor.networks
         disallowed_fields.append(field)
 
   if missing_fields:
-    raise ValueError('Network status document is missing mandatory field: %s' % ', '.join(missing_fields))
+    raise ValueError(
+        f"Network status document is missing mandatory field: {', '.join(missing_fields)}"
+    )
 
   if disallowed_fields:
-    raise ValueError("Network status document has fields that shouldn't appear in this document type or version: %s" % ', '.join(disallowed_fields))
+    raise ValueError(
+        f"Network status document has fields that shouldn't appear in this document type or version: {', '.join(disallowed_fields)}"
+    )
 
 
 def _parse_int_mappings(keyword: str, value: str, validate: bool) -> Dict[str, int]:
@@ -1462,7 +1505,7 @@ def _parse_int_mappings(keyword: str, value: str, validate: bool) -> Dict[str, i
 
       results[key] = int(val)
     except ValueError:
-      raise ValueError(error_template % ("'%s' is a non-numeric value" % val))
+      raise ValueError(error_template % f"'{val}' is a non-numeric value")
 
     seen_keys.append(key)
 
@@ -1476,21 +1519,25 @@ def _parse_dirauth_source_line(descriptor: 'stem.descriptor.Descriptor', entries
   dir_source_comp = value.split(' ')
 
   if len(dir_source_comp) < 6:
-    raise ValueError("Authority entry's 'dir-source' line must have six values: dir-source %s" % value)
+    raise ValueError(
+        f"Authority entry's 'dir-source' line must have six values: dir-source {value}"
+    )
 
   if not stem.util.tor_tools.is_valid_nickname(dir_source_comp[0].rstrip('-legacy')):
-    raise ValueError("Authority's nickname is invalid: %s" % dir_source_comp[0])
+    raise ValueError(f"Authority's nickname is invalid: {dir_source_comp[0]}")
   elif not stem.util.tor_tools.is_valid_fingerprint(dir_source_comp[1]):
-    raise ValueError("Authority's v3ident is invalid: %s" % dir_source_comp[1])
+    raise ValueError(f"Authority's v3ident is invalid: {dir_source_comp[1]}")
   elif not dir_source_comp[2]:
     # https://gitlab.torproject.org/tpo/core/tor/-/issues/7055
-    raise ValueError("Authority's hostname can't be blank: dir-source %s" % value)
+    raise ValueError(f"Authority's hostname can't be blank: dir-source {value}")
   elif not stem.util.connection.is_valid_ipv4_address(dir_source_comp[3]):
-    raise ValueError("Authority's address isn't a valid IPv4 address: %s" % dir_source_comp[3])
+    raise ValueError(
+        f"Authority's address isn't a valid IPv4 address: {dir_source_comp[3]}"
+    )
   elif not stem.util.connection.is_valid_port(dir_source_comp[4], allow_zero = True):
-    raise ValueError("Authority's DirPort is invalid: %s" % dir_source_comp[4])
+    raise ValueError(f"Authority's DirPort is invalid: {dir_source_comp[4]}")
   elif not stem.util.connection.is_valid_port(dir_source_comp[5]):
-    raise ValueError("Authority's ORPort is invalid: %s" % dir_source_comp[5])
+    raise ValueError(f"Authority's ORPort is invalid: {dir_source_comp[5]}")
 
   descriptor.nickname = dir_source_comp[0]
   descriptor.v3ident = dir_source_comp[1]
@@ -1593,13 +1640,21 @@ class DirectoryAuthority(Descriptor):
 
     # include mandatory 'vote-digest' if a consensus
 
-    if not is_vote and not ('vote-digest' in attr or (exclude and 'vote-digest' in exclude)):
+    if (not is_vote and 'vote-digest' not in attr
+        and (not exclude or 'vote-digest' not in exclude)):
       attr['vote-digest'] = _random_fingerprint()
 
-    content = _descriptor_content(attr, exclude, (
-      ('dir-source', '%s %s no.place.com %s 9030 9090' % (_random_nickname(), _random_fingerprint(), _random_ipv4_address())),
-      ('contact', 'Mike Perry <email>'),
-    ))
+    content = _descriptor_content(
+        attr,
+        exclude,
+        (
+            (
+                'dir-source',
+                f'{_random_nickname()} {_random_fingerprint()} no.place.com {_random_ipv4_address()} 9030 9090',
+            ),
+            ('contact', 'Mike Perry <email>'),
+        ),
+    )
 
     if is_vote:
       content += b'\n' + KeyCertificate.content()
@@ -1636,7 +1691,7 @@ class DirectoryAuthority(Descriptor):
 
     entries = _descriptor_components(content.encode('utf-8'), validate)
 
-    if validate and 'dir-source' != list(entries.keys())[0]:
+    if validate and list(entries.keys())[0] != 'dir-source':
       raise ValueError("Authority entries are expected to start with a 'dir-source' line:\n%s" % (content))
 
     # check that we have mandatory fields
@@ -1657,7 +1712,7 @@ class DirectoryAuthority(Descriptor):
           raise ValueError('Authority votes must have a key certificate:\n%s' % content)
 
         excluded_fields += ['vote-digest']
-      elif not is_vote:
+      else:
         if self.key_certificate:
           raise ValueError("Authority consensus entries shouldn't have a key certificate:\n%s" % content)
 
@@ -1691,14 +1746,18 @@ def _parse_dir_address_line(descriptor: 'stem.descriptor.Descriptor', entries: E
   value = _value('dir-address', entries)
 
   if ':' not in value:
-    raise ValueError("Key certificate's 'dir-address' is expected to be of the form ADDRESS:PORT: dir-address %s" % value)
+    raise ValueError(
+        f"Key certificate's 'dir-address' is expected to be of the form ADDRESS:PORT: dir-address {value}"
+    )
 
   address, dirport = value.rsplit(':', 1)
 
   if not stem.util.connection.is_valid_ipv4_address(address):
-    raise ValueError("Key certificate's address isn't a valid IPv4 address: dir-address %s" % value)
+    raise ValueError(
+        f"Key certificate's address isn't a valid IPv4 address: dir-address {value}"
+    )
   elif not stem.util.connection.is_valid_port(dirport):
-    raise ValueError("Key certificate's dirport is invalid: dir-address %s" % value)
+    raise ValueError(f"Key certificate's dirport is invalid: dir-address {value}")
 
   descriptor.address = address
   descriptor.dir_port = int(dirport)
@@ -1777,9 +1836,9 @@ class KeyCertificate(Descriptor):
     entries = _descriptor_components(raw_content, validate)
 
     if validate:
-      if 'dir-key-certificate-version' != list(entries.keys())[0]:
+      if list(entries.keys())[0] != 'dir-key-certificate-version':
         raise ValueError("Key certificates must start with a 'dir-key-certificate-version' line:\n%s" % stem.util.str_tools._to_unicode(raw_content))
-      elif 'dir-key-certification' != list(entries.keys())[-1]:
+      elif list(entries.keys())[-1] != 'dir-key-certification':
         raise ValueError("Key certificates must end with a 'dir-key-certification' line:\n%s" % stem.util.str_tools._to_unicode(raw_content))
 
       # check that we have mandatory fields and that our known fields only
@@ -1820,10 +1879,12 @@ class DocumentSignature(object):
 
     if validate:
       if not stem.util.tor_tools.is_valid_fingerprint(identity):
-        raise ValueError('Malformed fingerprint (%s) in the document signature' % identity)
+        raise ValueError(
+            f'Malformed fingerprint ({identity}) in the document signature')
 
       if not stem.util.tor_tools.is_valid_fingerprint(key_digest):
-        raise ValueError('Malformed key digest (%s) in the document signature' % key_digest)
+        raise ValueError(
+            f'Malformed key digest ({key_digest}) in the document signature')
 
     self.method = method
     self.identity = identity
@@ -1920,7 +1981,7 @@ class DetachedSignature(Descriptor):
     entries = _descriptor_components(raw_content, validate)
 
     if validate:
-      if 'consensus-digest' != list(entries.keys())[0]:
+      if list(entries.keys())[0] != 'consensus-digest':
         raise ValueError("Detached signatures must start with a 'consensus-digest' line:\n%s" % stem.util.str_tools._to_unicode(raw_content))
 
       # check that we have mandatory fields and certain fields only appear once
@@ -1965,7 +2026,9 @@ class BridgeNetworkStatusDocument(NetworkStatusDocument):
         self.published = stem.util.str_tools._parse_timestamp(published_line, datetime.timezone.utc)
       except ValueError:
         if validate:
-          raise ValueError("Bridge network status document's 'published' time wasn't parsable: %s" % published_line)
+          raise ValueError(
+              f"Bridge network status document's 'published' time wasn't parsable: {published_line}"
+          )
     elif validate:
       raise ValueError("Bridge network status documents must start with a 'published' line:\n%s" % stem.util.str_tools._to_unicode(raw_content))
 
@@ -1976,4 +2039,4 @@ class BridgeNetworkStatusDocument(NetworkStatusDocument):
       extra_args = (self,),
     )
 
-    self.routers = dict((desc.fingerprint, desc) for desc in router_iter)
+    self.routers = {desc.fingerprint: desc for desc in router_iter}

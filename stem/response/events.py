@@ -110,11 +110,15 @@ class Event(stem.response.ControlMessage):
           attr_values = [positional.pop(0)]
 
           if not attr_values[0].startswith('"'):
-            raise stem.ProtocolError("The %s value should be quoted, but didn't have a starting quote: %s" % (attr_name, self))
+            raise stem.ProtocolError(
+                f"The {attr_name} value should be quoted, but didn't have a starting quote: {self}"
+            )
 
           while True:
             if not positional:
-              raise stem.ProtocolError("The %s value should be quoted, but didn't have an ending quote: %s" % (attr_name, self))
+              raise stem.ProtocolError(
+                  f"The {attr_name} value should be quoted, but didn't have an ending quote: {self}"
+              )
 
             attr_values.append(positional.pop(0))
 
@@ -147,7 +151,7 @@ class Event(stem.response.ControlMessage):
     try:
       return str_tools._parse_iso_timestamp(timestamp)
     except ValueError as exc:
-      raise stem.ProtocolError('Unable to parse timestamp (%s): %s' % (exc, self))
+      raise stem.ProtocolError(f'Unable to parse timestamp ({exc}): {self}')
 
   # method overwritten by our subclasses for special handling that they do
   def _parse(self) -> None:
@@ -162,16 +166,14 @@ class Event(stem.response.ControlMessage):
     :param enum: enumeration to check against
     """
 
-    attr_values = getattr(self, attr)
-
-    if attr_values:
+    if attr_values := getattr(self, attr):
       if isinstance(attr_values, (bytes, str)):
         attr_values = [attr_values]
 
       for value in attr_values:
         if value not in attr_enum:
-          log_id = 'event.%s.unknown_%s.%s' % (self.type.lower(), attr, value)
-          unrecognized_msg = "%s event had an unrecognized %s (%s). Maybe a new addition to the control protocol? Full Event: '%s'" % (self.type, attr, value, self)
+          log_id = f'event.{self.type.lower()}.unknown_{attr}.{value}'
+          unrecognized_msg = f"{self.type} event had an unrecognized {attr} ({value}). Maybe a new addition to the control protocol? Full Event: '{self}'"
           log.log_once(log_id, log.INFO, unrecognized_msg)
 
 
@@ -225,7 +227,7 @@ class AddrMapEvent(Event):
           # UTC). This is a bug, left in for backward compatibility"
           self.expiry = stem.util.str_tools._parse_timestamp(self.expiry, None)
         except ValueError:
-          raise stem.ProtocolError('Unable to parse date in ADDRMAP event: %s' % self)
+          raise stem.ProtocolError(f'Unable to parse date in ADDRMAP event: {self}')
 
     if self.utc_expiry is not None:
       self.utc_expiry = stem.util.str_tools._parse_timestamp(self.utc_expiry, datetime.timezone.utc)
@@ -236,7 +238,9 @@ class AddrMapEvent(Event):
       elif self.cached == 'NO':
         self.cached = False
       else:
-        raise stem.ProtocolError("An ADDRMAP event's CACHED mapping can only be 'YES' or 'NO': %s" % self)
+        raise stem.ProtocolError(
+            f"An ADDRMAP event's CACHED mapping can only be 'YES' or 'NO': {self}"
+        )
 
 
 class BandwidthEvent(Event):
@@ -262,7 +266,9 @@ class BandwidthEvent(Event):
     elif not self.written:
       raise stem.ProtocolError('BW event is missing its written value')
     elif not self.read.isdigit() or not self.written.isdigit():
-      raise stem.ProtocolError("A BW event's bytes sent and received should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A BW event's bytes sent and received should be a positive numeric value, received: {self}"
+      )
 
     self.read = int(self.read)
     self.written = int(self.written)
@@ -320,7 +326,8 @@ class BuildTimeoutSetEvent(Event):
         try:
           setattr(self, param, int(param_value))
         except ValueError:
-          raise stem.ProtocolError('The %s of a BUILDTIMEOUT_SET should be an integer: %s' % (param, self))
+          raise stem.ProtocolError(
+              f'The {param} of a BUILDTIMEOUT_SET should be an integer: {self}')
 
     for param in ('alpha', 'quantile', 'timeout_rate', 'close_rate'):
       param_value = getattr(self, param)
@@ -329,7 +336,8 @@ class BuildTimeoutSetEvent(Event):
         try:
           setattr(self, param, float(param_value))
         except ValueError:
-          raise stem.ProtocolError('The %s of a BUILDTIMEOUT_SET should be a float: %s' % (param, self))
+          raise stem.ProtocolError(
+              f'The {param} of a BUILDTIMEOUT_SET should be a float: {self}')
 
     self._log_if_unrecognized('set_type', stem.TimeoutSetType)
 
@@ -401,7 +409,9 @@ class CircuitEvent(Event):
       self.build_flags = tuple(self.build_flags.split(','))
 
     if not tor_tools.is_valid_circuit_id(self.id):
-      raise stem.ProtocolError("Circuit IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.id, self))
+      raise stem.ProtocolError(
+          f"Circuit IDs must be one to sixteen alphanumeric characters, got '{self.id}': {self}"
+      )
 
     self._log_if_unrecognized('status', stem.CircStatus)
     self._log_if_unrecognized('build_flags', stem.CircBuildFlag)
@@ -485,7 +495,9 @@ class CircMinorEvent(Event):
       self.build_flags = tuple(self.build_flags.split(','))
 
     if not tor_tools.is_valid_circuit_id(self.id):
-      raise stem.ProtocolError("Circuit IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.id, self))
+      raise stem.ProtocolError(
+          f"Circuit IDs must be one to sixteen alphanumeric characters, got '{self.id}': {self}"
+      )
 
     self._log_if_unrecognized('event', stem.CircEvent)
     self._log_if_unrecognized('build_flags', stem.CircBuildFlag)
@@ -527,16 +539,20 @@ class ClientsSeenEvent(Event):
 
       for entry in self.locales.split(','):
         if '=' not in entry:
-          raise stem.ProtocolError("The CLIENTS_SEEN's CountrySummary should be a comma separated listing of '<locale>=<count>' mappings: %s" % self)
+          raise stem.ProtocolError(
+              f"The CLIENTS_SEEN's CountrySummary should be a comma separated listing of '<locale>=<count>' mappings: {self}"
+          )
 
         locale, count = entry.split('=', 1)
 
         if len(locale) != 2:
-          raise stem.ProtocolError("Locales should be a two character code, got '%s': %s" % (locale, self))
+          raise stem.ProtocolError(
+              f"Locales should be a two character code, got '{locale}': {self}")
         elif not count.isdigit():
-          raise stem.ProtocolError('Locale count was non-numeric (%s): %s' % (count, self))
+          raise stem.ProtocolError(f'Locale count was non-numeric ({count}): {self}')
         elif locale in locale_to_count:
-          raise stem.ProtocolError("CountrySummary had multiple mappings for '%s': %s" % (locale, self))
+          raise stem.ProtocolError(
+              f"CountrySummary had multiple mappings for '{locale}': {self}")
 
         locale_to_count[locale] = int(count)
 
@@ -547,12 +563,15 @@ class ClientsSeenEvent(Event):
 
       for entry in self.ip_versions.split(','):
         if '=' not in entry:
-          raise stem.ProtocolError("The CLIENTS_SEEN's IPVersions should be a comma separated listing of '<protocol>=<count>' mappings: %s" % self)
+          raise stem.ProtocolError(
+              f"The CLIENTS_SEEN's IPVersions should be a comma separated listing of '<protocol>=<count>' mappings: {self}"
+          )
 
         protocol, count = entry.split('=', 1)
 
         if not count.isdigit():
-          raise stem.ProtocolError('IP protocol count was non-numeric (%s): %s' % (count, self))
+          raise stem.ProtocolError(
+              f'IP protocol count was non-numeric ({count}): {self}')
 
         protocol_to_count[protocol] = int(count)
 
@@ -648,9 +667,10 @@ class GuardEvent(Event):
   def _parse(self) -> None:
     try:
       self.endpoint_fingerprint, self.endpoint_nickname = \
-        stem.control._parse_circ_entry(self.endpoint)
+          stem.control._parse_circ_entry(self.endpoint)
     except stem.ProtocolError:
-      raise stem.ProtocolError("GUARD's endpoint doesn't match a ServerSpec: %s" % self)
+      raise stem.ProtocolError(
+          f"GUARD's endpoint doesn't match a ServerSpec: {self}")
 
     self._log_if_unrecognized('guard_type', stem.GuardType)
     self._log_if_unrecognized('status', stem.GuardStatus)
@@ -705,13 +725,16 @@ class HSDescEvent(Event):
     if self.directory != 'UNKNOWN':
       try:
         self.directory_fingerprint, self.directory_nickname = \
-          stem.control._parse_circ_entry(self.directory)
+            stem.control._parse_circ_entry(self.directory)
       except stem.ProtocolError:
-        raise stem.ProtocolError("HS_DESC's directory doesn't match a ServerSpec: %s" % self)
+        raise stem.ProtocolError(
+            f"HS_DESC's directory doesn't match a ServerSpec: {self}")
 
     if self.replica is not None:
       if not self.replica.isdigit():
-        raise stem.ProtocolError('HS_DESC event got a non-numeric replica count (%s): %s' % (self.replica, self))
+        raise stem.ProtocolError(
+            f'HS_DESC event got a non-numeric replica count ({self.replica}): {self}'
+        )
 
       self.replica = int(self.replica)
 
@@ -752,9 +775,10 @@ class HSDescContentEvent(Event):
 
     try:
       self.directory_fingerprint, self.directory_nickname = \
-        stem.control._parse_circ_entry(self.directory)
+          stem.control._parse_circ_entry(self.directory)
     except stem.ProtocolError:
-      raise stem.ProtocolError("HS_DESC_CONTENT's directory doesn't match a ServerSpec: %s" % self)
+      raise stem.ProtocolError(
+          f"HS_DESC_CONTENT's directory doesn't match a ServerSpec: {self}")
 
     # skip the first line (our positional arguments) and last ('OK')
 
@@ -901,7 +925,8 @@ class NewDescEvent(Event):
     self.relays = ()  # type: Tuple[Tuple[str, str], ...]
 
   def _parse(self) -> None:
-    self.relays = tuple([stem.control._parse_circ_entry(entry) for entry in str(self).split()[1:]])
+    self.relays = tuple(
+        stem.control._parse_circ_entry(entry) for entry in str(self).split()[1:])
 
 
 class ORConnEvent(Event):
@@ -955,27 +980,33 @@ class ORConnEvent(Event):
   def _parse(self) -> None:
     try:
       self.endpoint_fingerprint, self.endpoint_nickname = \
-        stem.control._parse_circ_entry(self.endpoint)
+          stem.control._parse_circ_entry(self.endpoint)
     except stem.ProtocolError:
       if ':' not in self.endpoint:
-        raise stem.ProtocolError("ORCONN endpoint is neither a relay nor 'address:port': %s" % self)
+        raise stem.ProtocolError(
+            f"ORCONN endpoint is neither a relay nor 'address:port': {self}")
 
       address, port = self.endpoint.rsplit(':', 1)
 
       if not connection.is_valid_port(port):
-        raise stem.ProtocolError("ORCONN's endpoint location's port is invalid: %s" % self)
+        raise stem.ProtocolError(
+            f"ORCONN's endpoint location's port is invalid: {self}")
 
       self.endpoint_address = address
       self.endpoint_port = int(port)
 
     if self.circ_count is not None:
       if not self.circ_count.isdigit():
-        raise stem.ProtocolError('ORCONN event got a non-numeric circuit count (%s): %s' % (self.circ_count, self))
+        raise stem.ProtocolError(
+            f'ORCONN event got a non-numeric circuit count ({self.circ_count}): {self}'
+        )
 
       self.circ_count = int(self.circ_count)
 
     if self.id and not tor_tools.is_valid_connection_id(self.id):
-      raise stem.ProtocolError("Connection IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.id, self))
+      raise stem.ProtocolError(
+          f"Connection IDs must be one to sixteen alphanumeric characters, got '{self.id}': {self}"
+      )
 
     self._log_if_unrecognized('status', stem.ORStatus)
     self._log_if_unrecognized('reason', stem.ORClosureReason)
@@ -1050,7 +1081,9 @@ class StatusEvent(Event):
     elif self.type == 'STATUS_SERVER':
       self.status_type = stem.StatusType.SERVER
     else:
-      raise ValueError("BUG: Unrecognized status type (%s), likely an EVENT_TYPE_TO_CLASS addition without revising how 'status_type' is assigned." % self.type)
+      raise ValueError(
+          f"BUG: Unrecognized status type ({self.type}), likely an EVENT_TYPE_TO_CLASS addition without revising how 'status_type' is assigned."
+      )
 
     # Just an alias for our parent class' keyword_args since that already
     # parses these for us. Unlike our other event types Tor commonly supplies
@@ -1117,30 +1150,31 @@ class StreamEvent(Event):
 
   def _parse(self) -> None:
     if self.target is None:
-      raise stem.ProtocolError("STREAM event didn't have a target: %s" % self)
-    else:
-      if ':' not in self.target:
-        raise stem.ProtocolError("Target location must be of the form 'address:port': %s" % self)
+      raise stem.ProtocolError(f"STREAM event didn't have a target: {self}")
+    if ':' not in self.target:
+      raise stem.ProtocolError(
+          f"Target location must be of the form 'address:port': {self}")
 
-      address, port = self.target.rsplit(':', 1)
+    address, port = self.target.rsplit(':', 1)
 
-      if not connection.is_valid_port(port, allow_zero = True):
-        raise stem.ProtocolError("Target location's port is invalid: %s" % self)
+    if not connection.is_valid_port(port, allow_zero = True):
+      raise stem.ProtocolError(f"Target location's port is invalid: {self}")
 
-      self.target_address = address
-      self.target_port = int(port)
+    self.target_address = address
+    self.target_port = int(port)
 
     if self.source_addr is None:
       self.source_address = None
       self.source_port = None
     else:
       if ':' not in self.source_addr:
-        raise stem.ProtocolError("Source location must be of the form 'address:port': %s" % self)
+        raise stem.ProtocolError(
+            f"Source location must be of the form 'address:port': {self}")
 
       address, port = self.source_addr.rsplit(':', 1)
 
       if not connection.is_valid_port(port, allow_zero = True):
-        raise stem.ProtocolError("Source location's port is invalid: %s" % self)
+        raise stem.ProtocolError(f"Source location's port is invalid: {self}")
 
       self.source_address = address
       self.source_port = int(port)
@@ -1182,13 +1216,17 @@ class StreamBwEvent(Event):
 
   def _parse(self) -> None:
     if not tor_tools.is_valid_stream_id(self.id):
-      raise stem.ProtocolError("Stream IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.id, self))
+      raise stem.ProtocolError(
+          f"Stream IDs must be one to sixteen alphanumeric characters, got '{self.id}': {self}"
+      )
     elif not self.written:
       raise stem.ProtocolError('STREAM_BW event is missing its written value')
     elif not self.read:
       raise stem.ProtocolError('STREAM_BW event is missing its read value')
     elif not self.read.isdigit() or not self.written.isdigit():
-      raise stem.ProtocolError("A STREAM_BW event's bytes sent and received should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A STREAM_BW event's bytes sent and received should be a positive numeric value, received: {self}"
+      )
 
     self.read = int(self.read)
     self.written = int(self.written)
@@ -1221,14 +1259,16 @@ class TransportLaunchedEvent(Event):
 
   def _parse(self) -> None:
     if self.type not in ('server', 'client'):
-      raise stem.ProtocolError("Transport type should either be 'server' or 'client': %s" % self)
+      raise stem.ProtocolError(
+          f"Transport type should either be 'server' or 'client': {self}")
 
     if not connection.is_valid_ipv4_address(self.address) and \
-       not connection.is_valid_ipv6_address(self.address):
-      raise stem.ProtocolError("Transport address isn't a valid IPv4 or IPv6 address: %s" % self)
+         not connection.is_valid_ipv6_address(self.address):
+      raise stem.ProtocolError(
+          f"Transport address isn't a valid IPv4 or IPv6 address: {self}")
 
     if not connection.is_valid_port(self.port):
-      raise stem.ProtocolError('Transport port is invalid: %s' % self)
+      raise stem.ProtocolError(f'Transport port is invalid: {self}')
 
     self.port = int(self.port)
 
@@ -1277,9 +1317,13 @@ class ConnectionBandwidthEvent(Event):
     elif not self.written:
       raise stem.ProtocolError('CONN_BW event is missing its written value')
     elif not self.read.isdigit() or not self.written.isdigit():
-      raise stem.ProtocolError("A CONN_BW event's bytes sent and received should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A CONN_BW event's bytes sent and received should be a positive numeric value, received: {self}"
+      )
     elif not tor_tools.is_valid_connection_id(self.id):
-      raise stem.ProtocolError("Connection IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.id, self))
+      raise stem.ProtocolError(
+          f"Connection IDs must be one to sixteen alphanumeric characters, got '{self.id}': {self}"
+      )
 
     self.read = int(self.read)
     self.written = int(self.written)
@@ -1344,26 +1388,38 @@ class CircuitBandwidthEvent(Event):
     elif not self.written:
       raise stem.ProtocolError('CIRC_BW event is missing its written value')
     elif not self.read.isdigit():
-      raise stem.ProtocolError("A CIRC_BW event's bytes received should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A CIRC_BW event's bytes received should be a positive numeric value, received: {self}"
+      )
     elif not self.written.isdigit():
-      raise stem.ProtocolError("A CIRC_BW event's bytes sent should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A CIRC_BW event's bytes sent should be a positive numeric value, received: {self}"
+      )
     elif self.delivered_read and not self.delivered_read.isdigit():
-      raise stem.ProtocolError("A CIRC_BW event's delivered bytes received should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A CIRC_BW event's delivered bytes received should be a positive numeric value, received: {self}"
+      )
     elif self.delivered_written and not self.delivered_written.isdigit():
-      raise stem.ProtocolError("A CIRC_BW event's delivered bytes sent should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A CIRC_BW event's delivered bytes sent should be a positive numeric value, received: {self}"
+      )
     elif self.overhead_read and not self.overhead_read.isdigit():
-      raise stem.ProtocolError("A CIRC_BW event's overhead bytes received should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A CIRC_BW event's overhead bytes received should be a positive numeric value, received: {self}"
+      )
     elif self.overhead_written and not self.overhead_written.isdigit():
-      raise stem.ProtocolError("A CIRC_BW event's overhead bytes sent should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A CIRC_BW event's overhead bytes sent should be a positive numeric value, received: {self}"
+      )
     elif not tor_tools.is_valid_circuit_id(self.id):
-      raise stem.ProtocolError("Circuit IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.id, self))
+      raise stem.ProtocolError(
+          f"Circuit IDs must be one to sixteen alphanumeric characters, got '{self.id}': {self}"
+      )
 
     self.time = self._iso_timestamp(self.time)
 
     for attr in ('read', 'written', 'delivered_read', 'delivered_written', 'overhead_read', 'overhead_written'):
-      value = getattr(self, attr)
-
-      if value:
+      if value := getattr(self, attr):
         setattr(self, attr, int(value))
 
 
@@ -1421,15 +1477,25 @@ class CellStatsEvent(Event):
 
   def _parse(self) -> None:
     if self.id and not tor_tools.is_valid_circuit_id(self.id):
-      raise stem.ProtocolError("Circuit IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.id, self))
+      raise stem.ProtocolError(
+          f"Circuit IDs must be one to sixteen alphanumeric characters, got '{self.id}': {self}"
+      )
     elif self.inbound_queue and not tor_tools.is_valid_circuit_id(self.inbound_queue):
-      raise stem.ProtocolError("Queue IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.inbound_queue, self))
+      raise stem.ProtocolError(
+          f"Queue IDs must be one to sixteen alphanumeric characters, got '{self.inbound_queue}': {self}"
+      )
     elif self.inbound_connection and not tor_tools.is_valid_connection_id(self.inbound_connection):
-      raise stem.ProtocolError("Connection IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.inbound_connection, self))
+      raise stem.ProtocolError(
+          f"Connection IDs must be one to sixteen alphanumeric characters, got '{self.inbound_connection}': {self}"
+      )
     elif self.outbound_queue and not tor_tools.is_valid_circuit_id(self.outbound_queue):
-      raise stem.ProtocolError("Queue IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.outbound_queue, self))
+      raise stem.ProtocolError(
+          f"Queue IDs must be one to sixteen alphanumeric characters, got '{self.outbound_queue}': {self}"
+      )
     elif self.outbound_connection and not tor_tools.is_valid_connection_id(self.outbound_connection):
-      raise stem.ProtocolError("Connection IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.outbound_connection, self))
+      raise stem.ProtocolError(
+          f"Connection IDs must be one to sixteen alphanumeric characters, got '{self.outbound_connection}': {self}"
+      )
 
     self.inbound_added = _parse_cell_type_mapping(self.inbound_added)
     self.inbound_removed = _parse_cell_type_mapping(self.inbound_removed)
@@ -1474,13 +1540,21 @@ class TokenBucketEmptyEvent(Event):
 
   def _parse(self) -> None:
     if self.id and not tor_tools.is_valid_connection_id(self.id):
-      raise stem.ProtocolError("Connection IDs must be one to sixteen alphanumeric characters, got '%s': %s" % (self.id, self))
+      raise stem.ProtocolError(
+          f"Connection IDs must be one to sixteen alphanumeric characters, got '{self.id}': {self}"
+      )
     elif not self.read.isdigit():
-      raise stem.ProtocolError("A TB_EMPTY's READ value should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A TB_EMPTY's READ value should be a positive numeric value, received: {self}"
+      )
     elif not self.written.isdigit():
-      raise stem.ProtocolError("A TB_EMPTY's WRITTEN value should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A TB_EMPTY's WRITTEN value should be a positive numeric value, received: {self}"
+      )
     elif not self.last_refill.isdigit():
-      raise stem.ProtocolError("A TB_EMPTY's LAST value should be a positive numeric value, received: %s" % self)
+      raise stem.ProtocolError(
+          f"A TB_EMPTY's LAST value should be a positive numeric value, received: {self}"
+      )
 
     self.read = int(self.read)
     self.written = int(self.written)
@@ -1511,14 +1585,17 @@ def _parse_cell_type_mapping(mapping: str) -> Dict[str, int]:
 
   for entry in mapping.split(','):
     if ':' not in entry:
-      raise stem.ProtocolError("Mappings are expected to be of the form 'key:value', got '%s': %s" % (entry, mapping))
+      raise stem.ProtocolError(
+          f"Mappings are expected to be of the form 'key:value', got '{entry}': {mapping}"
+      )
 
     key, value = entry.rsplit(':', 1)
 
     if not CELL_TYPE.match(key):
-      raise stem.ProtocolError("Key had invalid characters, got '%s': %s" % (key, mapping))
+      raise stem.ProtocolError(f"Key had invalid characters, got '{key}': {mapping}")
     elif not value.isdigit():
-      raise stem.ProtocolError("Values should just be integers, got '%s': %s" % (value, mapping))
+      raise stem.ProtocolError(
+          f"Values should just be integers, got '{value}': {mapping}")
 
     results[key] = int(value)
 

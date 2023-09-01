@@ -132,9 +132,10 @@ class TestProtocolInfo(unittest.TestCase):
     auth_methods, auth_cookie_path = [], None
 
     if test.runner.Torrc.COOKIE in tor_options:
-      auth_methods.append(stem.connection.AuthMethod.COOKIE)
-      auth_methods.append(stem.connection.AuthMethod.SAFECOOKIE)
-
+      auth_methods.extend((
+          stem.connection.AuthMethod.COOKIE,
+          stem.connection.AuthMethod.SAFECOOKIE,
+      ))
       chroot_path = runner.get_chroot()
       auth_cookie_path = runner.get_auth_cookie_path()
 

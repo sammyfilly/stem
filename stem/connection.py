@@ -358,9 +358,9 @@ async def connect_async(control_port: Tuple[str, Union[str, int]] = ('127.0.0.1'
     if len(control_port) != 2:
       raise ValueError('The control_port argument for connect() should be an (address, port) tuple.')
     elif not stem.util.connection.is_valid_ipv4_address(control_port[0]) and not stem.util.connection.is_valid_ipv6_address(control_port[0]):
-      raise ValueError("'%s' isn't a vaid address" % control_port[0])
+      raise ValueError(f"'{control_port[0]}' isn't a vaid address")
     elif control_port[1] != 'default' and not stem.util.connection.is_valid_port(control_port[1]):
-      raise ValueError("'%s' isn't a valid port" % control_port[1])
+      raise ValueError(f"'{control_port[1]}' isn't a valid port")
 
   control_connection = None  # type: Optional[stem.socket.ControlSocket]
   error_msg = ''
@@ -584,12 +584,12 @@ async def authenticate(controller: Union[stem.control.BaseController, stem.socke
     except stem.ProtocolError:
       raise IncorrectSocketType('unable to use the control socket')
     except stem.SocketError as exc:
-      raise AuthenticationFailure('socket connection failed (%s)' % exc)
+      raise AuthenticationFailure(f'socket connection failed ({exc})')
 
   auth_methods = list(protocolinfo_response.auth_methods)
   auth_exceptions = []  # type: List[stem.connection.AuthenticationFailure]
 
-  if len(auth_methods) == 0:
+  if not auth_methods:
     raise NoAuthMethods('our PROTOCOLINFO response did not have any methods for authenticating')
 
   # remove authentication methods that are either unknown or for which we don't
@@ -603,10 +603,12 @@ async def authenticate(controller: Union[stem.control.BaseController, stem.socke
 
     # we... er, can't do anything with only unrecognized auth types
     if not auth_methods:
-      exc_msg = 'unrecognized authentication method%s (%s)' % (plural_label, methods_label)
+      exc_msg = f'unrecognized authentication method{plural_label} ({methods_label})'
       auth_exceptions.append(UnrecognizedAuthMethods(exc_msg, unknown_methods))
     else:
-      log.debug('Authenticating to a socket with unrecognized auth method%s, ignoring them: %s' % (plural_label, methods_label))
+      log.debug(
+          f'Authenticating to a socket with unrecognized auth method{plural_label}, ignoring them: {methods_label}'
+      )
 
   if protocolinfo_response.cookie_path is None:
     for cookie_auth_method in (AuthMethod.COOKIE, AuthMethod.SAFECOOKIE):
@@ -652,10 +654,14 @@ async def authenticate(controller: Union[stem.control.BaseController, stem.socke
     except PasswordAuthRejected as exc:
       # Since the PROTOCOLINFO says password auth is available we can assume
       # that if PasswordAuthRejected is raised it's being raised in error.
-      log.debug('The authenticate_password method raised a PasswordAuthRejected when password auth should be available. Stem may need to be corrected to recognize this response: %s' % exc)
+      log.debug(
+          f'The authenticate_password method raised a PasswordAuthRejected when password auth should be available. Stem may need to be corrected to recognize this response: {exc}'
+      )
       auth_exceptions.append(IncorrectPassword(str(exc)))
     except AuthSecurityFailure as exc:
-      log.info('Tor failed to provide the nonce expected for safecookie authentication. (%s)' % exc)
+      log.info(
+          f'Tor failed to provide the nonce expected for safecookie authentication. ({exc})'
+      )
       auth_exceptions.append(exc)
     except (InvalidClientNonce, UnrecognizedAuthChallengeMethod, AuthChallengeFailed) as exc:
       auth_exceptions.append(exc)
@@ -664,7 +670,9 @@ async def authenticate(controller: Union[stem.control.BaseController, stem.socke
     except CookieAuthRejected as exc:
       auth_func = 'authenticate_safecookie' if exc.is_safecookie else 'authenticate_cookie'
 
-      log.debug('The %s method raised a CookieAuthRejected when cookie auth should be available. Stem may need to be corrected to recognize this response: %s' % (auth_func, exc))
+      log.debug(
+          f'The {auth_func} method raised a CookieAuthRejected when cookie auth should be available. Stem may need to be corrected to recognize this response: {exc}'
+      )
       auth_exceptions.append(IncorrectCookieValue(str(exc), exc.cookie_path, exc.is_safecookie))
     except stem.ControllerError as exc:
       auth_exceptions.append(AuthenticationFailure(str(exc)))
@@ -680,7 +688,9 @@ async def authenticate(controller: Union[stem.control.BaseController, stem.socke
   # We really, really shouldn't get here. It means that auth_exceptions is
   # either empty or contains something that isn't an AuthenticationFailure.
 
-  raise AssertionError('BUG: Authentication failed without providing a recognized exception: %s' % str(auth_exceptions))
+  raise AssertionError(
+      f'BUG: Authentication failed without providing a recognized exception: {auth_exceptions}'
+  )
 
 
 async def authenticate_none(controller: Union[stem.control.BaseController, stem.socket.ControlSocket], suppress_ctl_errors: bool = True) -> None:
@@ -727,7 +737,7 @@ async def authenticate_none(controller: Union[stem.control.BaseController, stem.
     if not suppress_ctl_errors:
       raise
     else:
-      raise OpenAuthRejected('Socket failed (%s)' % exc)
+      raise OpenAuthRejected(f'Socket failed ({exc})')
 
 
 async def authenticate_password(controller: Union[stem.control.BaseController, stem.socket.ControlSocket], password: str, suppress_ctl_errors: bool = True) -> None:
@@ -771,7 +781,7 @@ async def authenticate_password(controller: Union[stem.control.BaseController, s
   password = password.replace('"', '\\"')
 
   try:
-    auth_response = await _msg(controller, 'AUTHENTICATE "%s"' % password)
+    auth_response = await _msg(controller, f'AUTHENTICATE "{password}"')
 
     # if we got anything but an OK response then error
     if str(auth_response) != 'OK':
@@ -797,7 +807,7 @@ async def authenticate_password(controller: Union[stem.control.BaseController, s
     if not suppress_ctl_errors:
       raise
     else:
-      raise PasswordAuthRejected('Socket failed (%s)' % exc)
+      raise PasswordAuthRejected(f'Socket failed ({exc})')
 
 
 async def authenticate_cookie(controller: Union[stem.control.BaseController, stem.socket.ControlSocket], cookie_path: str, suppress_ctl_errors: bool = True) -> None:
@@ -859,7 +869,7 @@ async def authenticate_cookie(controller: Union[stem.control.BaseController, ste
     # misbehave.
 
     auth_token_hex = binascii.b2a_hex(stem.util.str_tools._to_bytes(cookie_data))
-    msg = 'AUTHENTICATE %s' % stem.util.str_tools._to_unicode(auth_token_hex)
+    msg = f'AUTHENTICATE {stem.util.str_tools._to_unicode(auth_token_hex)}'
     auth_response = await _msg(controller, msg)
 
     # if we got anything but an OK response then error
@@ -887,7 +897,7 @@ async def authenticate_cookie(controller: Union[stem.control.BaseController, ste
     if not suppress_ctl_errors:
       raise
     else:
-      raise CookieAuthRejected('Socket failed (%s)' % exc, cookie_path, False)
+      raise CookieAuthRejected(f'Socket failed ({exc})', cookie_path, False)
 
 
 async def authenticate_safecookie(controller: Union[stem.control.BaseController, stem.socket.ControlSocket], cookie_path: str, suppress_ctl_errors: bool = True) -> None:
@@ -1091,11 +1101,10 @@ async def _msg(controller: Union[stem.control.BaseController, stem.socket.Contro
   :class:`~stem.socket.ControlSocket` or :class:`~stem.control.BaseController`.
   """
 
-  if isinstance(controller, stem.socket.ControlSocket):
-    await controller.send(message)
-    return await controller.recv()
-  else:
+  if not isinstance(controller, stem.socket.ControlSocket):
     return await controller.msg(message)
+  await controller.send(message)
+  return await controller.recv()
 
 
 def _connection_for_default_port(address: str) -> stem.socket.ControlPort:
@@ -1138,7 +1147,7 @@ def _read_cookie(cookie_path: str, is_safecookie: bool) -> bytes:
   """
 
   if not os.path.exists(cookie_path):
-    exc_msg = "Authentication failed: '%s' doesn't exist" % cookie_path
+    exc_msg = f"Authentication failed: '{cookie_path}' doesn't exist"
     raise UnreadableCookieFile(exc_msg, cookie_path, is_safecookie)
 
   # Abort if the file isn't 32 bytes long. This is to avoid exposing arbitrary
@@ -1158,7 +1167,7 @@ def _read_cookie(cookie_path: str, is_safecookie: bool) -> bytes:
     with open(cookie_path, 'rb', 0) as f:
       return f.read()
   except OSError as exc:
-    exc_msg = "Authentication failed: unable to read '%s' (%s)" % (cookie_path, exc)
+    exc_msg = f"Authentication failed: unable to read '{cookie_path}' ({exc})"
     raise UnreadableCookieFile(exc_msg, cookie_path, is_safecookie)
 
 
