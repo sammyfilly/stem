@@ -82,7 +82,7 @@ class Enum(object):
       elif isinstance(entry, tuple) and len(entry) == 2:
         key, val = entry
       else:
-        raise ValueError('Unrecognized input: %s' % args)
+        raise ValueError(f'Unrecognized input: {args}')
 
       keys.append(key)
       values.append(val)
@@ -125,7 +125,9 @@ class Enum(object):
     """
 
     if value not in self._values:
-      raise ValueError('No such enumeration exists: %s (options: %s)' % (value, ', '.join(self._values)))
+      raise ValueError(
+          f"No such enumeration exists: {value} (options: {', '.join(self._values)})"
+      )
 
     next_index = (self._values.index(value) + 1) % len(self._values)
     return self._values[next_index]
@@ -142,7 +144,9 @@ class Enum(object):
     """
 
     if value not in self._values:
-      raise ValueError('No such enumeration exists: %s (options: %s)' % (value, ', '.join(self._values)))
+      raise ValueError(
+          f"No such enumeration exists: {value} (options: {', '.join(self._values)})"
+      )
 
     prev_index = (self._values.index(value) - 1) % len(self._values)
     return self._values[prev_index]
@@ -160,14 +164,13 @@ class Enum(object):
 
     if item in vars(self):
       return getattr(self, item)
-    else:
-      keys = ', '.join(self.keys())
-      raise ValueError("'%s' isn't among our enumeration keys, which includes: %s" % (item, keys))
+    keys = ', '.join(self.keys())
+    raise ValueError(
+        f"'{item}' isn't among our enumeration keys, which includes: {keys}")
 
   def __iter__(self) -> Iterator[Any]:
     """
     Provides an ordered listing of the enums in this set.
     """
 
-    for entry in self._values:
-      yield entry
+    yield from self._values

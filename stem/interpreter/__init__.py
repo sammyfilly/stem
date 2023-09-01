@@ -135,7 +135,7 @@ def main() -> None:
         interpreter.run_command(args.run_cmd, print_response = True)
     elif args.run_path:
       try:
-        for line in open(args.run_path).readlines():
+        for line in open(args.run_path):
           interpreter.run_command(line.strip(), print_response = True)
       except OSError as exc:
         print(format(msg('msg.unable_to_read_file', path = args.run_path, error = exc), *ERROR_OUTPUT))

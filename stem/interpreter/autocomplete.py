@@ -25,30 +25,20 @@ def _get_commands(controller: stem.control.Controller, config: stem.util.conf.Co
   if controller is None:
     return commands
 
-  # GETINFO commands. Lines are of the form '[option] -- [description]'. This
-  # strips '*' from options that accept values.
-
-  results = cast(str, controller.get_info('info/names', None))
-
-  if results:
+  if results := cast(str, controller.get_info('info/names', None)):
     for line in results.splitlines():
       option = line.split(' ', 1)[0].rstrip('*')
-      commands.append('GETINFO %s' % option)
+      commands.append(f'GETINFO {option}')
   else:
     commands.append('GETINFO ')
 
-  # GETCONF, SETCONF, and RESETCONF commands. Lines are of the form
-  # '[option] [type]'.
-
-  results = cast(str, controller.get_info('config/names', None))
-
-  if results:
+  if results := cast(str, controller.get_info('config/names', None)):
     for line in results.splitlines():
       option = line.split(' ', 1)[0]
 
-      commands.append('GETCONF %s' % option)
-      commands.append('SETCONF %s' % option)
-      commands.append('RESETCONF %s' % option)
+      commands.append(f'GETCONF {option}')
+      commands.append(f'SETCONF {option}')
+      commands.append(f'RESETCONF {option}')
   else:
     commands += ['GETCONF ', 'SETCONF ', 'RESETCONF ']
 
@@ -62,9 +52,7 @@ def _get_commands(controller: stem.control.Controller, config: stem.util.conf.Co
   )
 
   for prefix, getinfo_cmd in options:
-    results = cast(str, controller.get_info(getinfo_cmd, None))
-
-    if results:
+    if results := cast(str, controller.get_info(getinfo_cmd, None)):
       commands += [prefix + value for value in results.split()]
     else:
       commands.append(prefix)
@@ -74,7 +62,7 @@ def _get_commands(controller: stem.control.Controller, config: stem.util.conf.Co
   usage_info = config.get('help.usage', {})
 
   for cmd in usage_info.keys():
-    commands.append('/help ' + cmd)
+    commands.append(f'/help {cmd}')
 
   return commands
 

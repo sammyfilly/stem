@@ -32,6 +32,7 @@ about the tor test instance they're running against.
     +- get_tor_command - provides the command used to start tor
 """
 
+
 import asyncio
 import logging
 import os
@@ -71,11 +72,14 @@ CONTROL_PORT = 1111
 CONTROL_SOCKET_PATH = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()), 'socket')
 
 Torrc = stem.util.enum.Enum(
-  ('PORT', 'ControlPort %i' % CONTROL_PORT),
-  ('COOKIE', 'CookieAuthentication 1'),
-  ('PASSWORD', 'HashedControlPassword 16:8C423A41EF4A542C6078985270AE28A4E04D056FB63F9F201505DB8E06'),
-  ('SOCKET', 'ControlSocket %s' % CONTROL_SOCKET_PATH),
-  ('PTRACE', 'DisableDebuggerAttachment 0'),
+    ('PORT', 'ControlPort %i' % CONTROL_PORT),
+    ('COOKIE', 'CookieAuthentication 1'),
+    (
+        'PASSWORD',
+        'HashedControlPassword 16:8C423A41EF4A542C6078985270AE28A4E04D056FB63F9F201505DB8E06',
+    ),
+    ('SOCKET', f'ControlSocket {CONTROL_SOCKET_PATH}'),
+    ('PTRACE', 'DisableDebuggerAttachment 0'),
 )
 
 
@@ -209,7 +213,7 @@ class Runner(object):
           os.makedirs(tor_cwd)
 
         os.chdir(tor_cwd)
-        data_dir_path = './%s' % os.path.basename(self._test_dir)
+        data_dir_path = f'./{os.path.basename(self._test_dir)}'
 
       config_csv = CONFIG['target.torrc'].get(config_target)
       target_torrc_opts = []
@@ -221,7 +225,7 @@ class Runner(object):
           if opt in Torrc.keys():
             target_torrc_opts.append(Torrc[opt])
           else:
-            raise ValueError("'%s' isn't a test.runner.Torrc enumeration" % opt)
+            raise ValueError(f"'{opt}' isn't a test.runner.Torrc enumeration")
 
       self._custom_opts = target_torrc_opts
 
@@ -524,10 +528,9 @@ class Runner(object):
 
     if process_status is None:
       return True
-    else:
-      process_output = stem.util.str_tools._to_unicode(self._tor_process.stdout.read() + b'\n\n' + self._tor_process.stderr.read()).strip()
-      println('\n%s\nOur tor process ended prematurely with exit status %s\n%s\n\n%s' % ('=' * 60, process_status, '=' * 60, process_output), ERROR)
-      return False
+    process_output = stem.util.str_tools._to_unicode(self._tor_process.stdout.read() + b'\n\n' + self._tor_process.stderr.read()).strip()
+    println('\n%s\nOur tor process ended prematurely with exit status %s\n%s\n\n%s' % ('=' * 60, process_status, '=' * 60, process_output), ERROR)
+    return False
 
   def _get(self, attr):
     """
@@ -556,7 +559,7 @@ class Runner(object):
 
     # makes a temporary data directory if needed
     try:
-      println('  making test directory (%s)... ' % self._test_dir, STATUS, NO_NL)
+      println(f'  making test directory ({self._test_dir})... ', STATUS, NO_NL)
 
       if os.path.exists(self._test_dir):
         println('skipped', STATUS)
@@ -564,7 +567,7 @@ class Runner(object):
         os.makedirs(self._test_dir)
         println('done', STATUS)
     except OSError as exc:
-      println('failed (%s)' % exc, ERROR)
+      println(f'failed ({exc})', ERROR)
       raise exc
 
     # Tor checks during startup that the directory a control socket resides in
@@ -574,7 +577,7 @@ class Runner(object):
     if Torrc.SOCKET in self._custom_opts:
       try:
         socket_dir = os.path.dirname(CONTROL_SOCKET_PATH)
-        println('  making control socket directory (%s)... ' % socket_dir, STATUS, NO_NL)
+        println(f'  making control socket directory ({socket_dir})... ', STATUS, NO_NL)
 
         if os.path.exists(socket_dir) and stat.S_IMODE(os.stat(socket_dir).st_mode) == 0o700:
           println('skipped', STATUS)
@@ -585,15 +588,12 @@ class Runner(object):
           os.chmod(socket_dir, 0o700)
           println('done', STATUS)
       except OSError as exc:
-        println('failed (%s)' % exc, ERROR)
+        println(f'failed ({exc})', ERROR)
         raise exc
 
-    # configures logging
-    logging_path = CONFIG['integ.log']
-
-    if logging_path:
+    if logging_path := CONFIG['integ.log']:
       logging_path = stem.util.system.expand_path(logging_path, test.STEM_BASE)
-      println('  configuring logger (%s)... ' % logging_path, STATUS, NO_NL)
+      println(f'  configuring logger ({logging_path})... ', STATUS, NO_NL)
 
       # delete the old log
 
@@ -614,16 +614,14 @@ class Runner(object):
     # writes our testing torrc
     torrc_dst = os.path.join(self._test_dir, 'torrc')
     try:
-      println('  writing torrc (%s)... ' % torrc_dst, STATUS, NO_NL)
+      println(f'  writing torrc ({torrc_dst})... ', STATUS, NO_NL)
 
-      torrc_file = open(torrc_dst, 'w')
-      torrc_file.write(self._torrc_contents)
-      torrc_file.close()
-
+      with open(torrc_dst, 'w') as torrc_file:
+        torrc_file.write(self._torrc_contents)
       println('done', STATUS)
 
       for line in self._torrc_contents.strip().splitlines():
-        println('    %s' % line.strip(), SUBSTATUS)
+        println(f'    {line.strip()}', SUBSTATUS)
 
       println()
     except Exception as exc:
@@ -645,12 +643,13 @@ class Runner(object):
 
     try:
       self._tor_process = stem.process.launch_tor(
-        tor_cmd = tor_cmd,
-        torrc_path = os.path.join(self._test_dir, 'torrc'),
-        completion_percent = 100 if test.Target.ONLINE in self.attribute_targets else 0,
-        init_msg_handler = lambda line: println('  %s' % line, SUBSTATUS),
-        take_ownership = True,
-        close_output = False,
+          tor_cmd=tor_cmd,
+          torrc_path=os.path.join(self._test_dir, 'torrc'),
+          completion_percent=100
+          if test.Target.ONLINE in self.attribute_targets else 0,
+          init_msg_handler=lambda line: println(f'  {line}', SUBSTATUS),
+          take_ownership=True,
+          close_output=False,
       )
 
       runtime = time.time() - start_time

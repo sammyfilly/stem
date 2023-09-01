@@ -106,9 +106,13 @@ class TestControlMessage(unittest.TestCase):
       await control_socket.send('GETINFO config-file')
       config_file_response = await control_socket.recv()
       self.assertEqual('config-file=%s\nOK' % torrc_dst, str(config_file_response))
-      self.assertEqual(['config-file=%s' % torrc_dst, 'OK'], list(config_file_response))
+      self.assertEqual([f'config-file={torrc_dst}', 'OK'],
+                       list(config_file_response))
       self.assertEqual('250-config-file=%s\r\n250 OK\r\n' % torrc_dst, config_file_response.raw_content())
-      self.assertEqual([('250', '-', 'config-file=%s' % torrc_dst), ('250', ' ', 'OK')], config_file_response.content())
+      self.assertEqual(
+          [('250', '-', f'config-file={torrc_dst}'), ('250', ' ', 'OK')],
+          config_file_response.content(),
+      )
 
   @test.require.controller
   @async_test
@@ -150,7 +154,7 @@ class TestControlMessage(unittest.TestCase):
         self.assertTrue('\n%s\n' % torrc_entry in str(config_text_response))
         self.assertTrue(torrc_entry in list(config_text_response)[0])
         self.assertTrue('%s\r\n' % torrc_entry in config_text_response.raw_content())
-        self.assertTrue('%s' % torrc_entry in config_text_response.content()[0][2])
+        self.assertTrue(f'{torrc_entry}' in config_text_response.content()[0][2])
 
   @test.require.controller
   @async_test

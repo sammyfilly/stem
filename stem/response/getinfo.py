@@ -30,7 +30,7 @@ class GetInfoResponse(stem.response.ControlMessage):
     self.entries = {}  # type: Dict[str, bytes]
     remaining_lines = [content for (code, div, content) in self._content_bytes()]
 
-    if not self.is_ok() or not remaining_lines.pop() == b'OK':
+    if not self.is_ok() or remaining_lines.pop() != b'OK':
       unrecognized_keywords = []
       error_code, error_msg = None, None
 
@@ -84,4 +84,6 @@ class GetInfoResponse(stem.response.ControlMessage):
       requested_label = ', '.join(params)
       reply_label = ', '.join(reply_params)
 
-      raise stem.ProtocolError("GETINFO reply doesn't match the parameters that we requested. Queried '%s' but got '%s'." % (requested_label, reply_label))
+      raise stem.ProtocolError(
+          f"GETINFO reply doesn't match the parameters that we requested. Queried '{requested_label}' but got '{reply_label}'."
+      )

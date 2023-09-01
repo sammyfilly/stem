@@ -72,7 +72,7 @@ class TestControlSocket(unittest.TestCase):
 
       for _ in range(100):
         response = await control_socket.recv()
-        self.assertTrue(str(response).startswith('version=%s' % test.tor_version()))
+        self.assertTrue(str(response).startswith(f'version={test.tor_version()}'))
         self.assertTrue(str(response).endswith('\nOK'))
 
   @test.require.controller

@@ -85,15 +85,10 @@ def _get_auth_failure_message(auth_type):
       return INCORRECT_PASSWORD_FAIL
     else:
       return PASSWORD_AUTH_FAIL
+  elif auth_type == stem.connection.AuthMethod.SAFECOOKIE:
+    return SAFECOOKIE_AUTHCHALLENGE_FAIL
+
   else:
-    # The only way that we should fail to authenticate to an open control
-    # socket is if we attempt via safecookie (since we get an 'unsupported'
-    # response via the AUTHCHALLENGE call rather than AUTHENTICATE). For
-    # anything else if we get here it indicates that this test has a bug.
-
-    if auth_type == stem.connection.AuthMethod.SAFECOOKIE:
-      return SAFECOOKIE_AUTHCHALLENGE_FAIL
-
     raise ValueError("No methods of authentication. If this is an open socket then auth shouldn't fail.")
 
 
@@ -285,7 +280,7 @@ class TestAuthenticate(unittest.TestCase):
     if test.runner.Torrc.PASSWORD not in runner.get_options() or test.runner.Torrc.COOKIE in runner.get_options():
       self.skipTest('(requires only password auth)')
 
-    for i in range(10):
+    for _ in range(10):
       async with await runner.get_tor_controller(False) as controller:
         with self.assertRaises(stem.connection.IncorrectPassword):
           await controller.authenticate('wrong_password')
@@ -325,11 +320,8 @@ class TestAuthenticate(unittest.TestCase):
 
     auth_value = test.runner.get_runner().get_test_dir('fake_cookie')
 
-    # we need to create a 32 byte cookie file to load from
-    fake_cookie = open(auth_value, 'w')
-    fake_cookie.write('0' * 32)
-    fake_cookie.close()
-
+    with open(auth_value, 'w') as fake_cookie:
+      fake_cookie.write('0' * 32)
     for auth_type in (stem.connection.AuthMethod.COOKIE, stem.connection.AuthMethod.SAFECOOKIE):
       if _can_authenticate(stem.connection.AuthMethod.NONE):
         # authentication will work anyway unless this is safecookie
@@ -363,8 +355,8 @@ class TestAuthenticate(unittest.TestCase):
     shouldn't exist.
     """
 
+    auth_value = "/if/this/exists/then/they're/asking/for/a/failure"
     for auth_type in (stem.connection.AuthMethod.COOKIE, stem.connection.AuthMethod.SAFECOOKIE):
-      auth_value = "/if/this/exists/then/they're/asking/for/a/failure"
       with self.assertRaises(stem.connection.UnreadableCookieFile):
         await self._check_auth(auth_type, auth_value, False)
 

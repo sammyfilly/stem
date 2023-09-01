@@ -109,7 +109,7 @@ if __version__.endswith('-dev'):
 
 # General information about the project.
 project = 'Stem'
-copyright = '2012, %s' % __author__
+copyright = f'2012, {__author__}'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -281,10 +281,13 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    ('index', 'stem', 'Stem Documentation',
-     ['%s (%s)' % (__author__, __contact__)], 1)
-]
+man_pages = [(
+    'index',
+    'stem',
+    'Stem Documentation',
+    [f'{__author__} ({__contact__})'],
+    1,
+)]
 
 
 def skip_members(app, what, name, obj, skip, options):

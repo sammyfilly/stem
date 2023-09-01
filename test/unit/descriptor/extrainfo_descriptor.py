@@ -301,11 +301,11 @@ k0d2aofcVbHr4fPQOSST0LXDrhFl5Fqo5um296zpJGvRUeO6S44U/EfJAGShtqWw
     data.
     """
 
+    test_value = 'ok=0,unavailable=0,not-found=984,not-modified=0,something-new=7'
     for keyword in ('dirreq-v2-resp', 'dirreq-v3-resp'):
       attr = keyword.replace('-', '_').replace('dirreq', 'dir').replace('resp', 'responses')
-      unknown_attr = attr + '_unknown'
+      unknown_attr = f'{attr}_unknown'
 
-      test_value = 'ok=0,unavailable=0,not-found=984,not-modified=0,something-new=7'
       desc = RelayExtraInfoDescriptor.create({keyword: test_value})
       self.assertEqual(0, getattr(desc, attr)[DirResponse.OK])
       self.assertEqual(0, getattr(desc, attr)[DirResponse.UNAVAILABLE])
@@ -330,11 +330,11 @@ k0d2aofcVbHr4fPQOSST0LXDrhFl5Fqo5um296zpJGvRUeO6S44U/EfJAGShtqWw
     and dirreq-v3-tunneled-dl lines with valid and invalid data.
     """
 
+    test_value = 'complete=2712,timeout=32,running=4,min=741,d1=14507,d2=22702,q1=28881,d3=38277,d4=73729,md=111455,d6=168231,d7=257218,q3=319833,d8=390507,d9=616301,something-new=11,max=29917857'
     for keyword in ('dirreq-v2-direct-dl', 'dirreq-v2-direct-dl', 'dirreq-v2-tunneled-dl', 'dirreq-v2-tunneled-dl'):
       attr = keyword.replace('-', '_').replace('dirreq', 'dir')
-      unknown_attr = attr + '_unknown'
+      unknown_attr = f'{attr}_unknown'
 
-      test_value = 'complete=2712,timeout=32,running=4,min=741,d1=14507,d2=22702,q1=28881,d3=38277,d4=73729,md=111455,d6=168231,d7=257218,q3=319833,d8=390507,d9=616301,something-new=11,max=29917857'
       desc = RelayExtraInfoDescriptor.create({keyword: test_value})
       self.assertEqual(2712, getattr(desc, attr)[DirStat.COMPLETE])
       self.assertEqual(32, getattr(desc, attr)[DirStat.TIMEOUT])
@@ -488,7 +488,7 @@ k0d2aofcVbHr4fPQOSST0LXDrhFl5Fqo5um296zpJGvRUeO6S44U/EfJAGShtqWw
 
     for keyword in ('cell-stats-end', 'entry-stats-end', 'exit-stats-end', 'bridge-stats-end', 'dirreq-stats-end'):
       end_attr = keyword.replace('-', '_').replace('dirreq', 'dir')
-      interval_attr = end_attr[:-4] + '_interval'
+      interval_attr = f'{end_attr[:-4]}_interval'
 
       desc = RelayExtraInfoDescriptor.create({keyword: '2012-05-03 12:07:50 (500 s)'})
       self.assertEqual(datetime.datetime(2012, 5, 3, 12, 7, 50), getattr(desc, end_attr))
@@ -517,9 +517,9 @@ k0d2aofcVbHr4fPQOSST0LXDrhFl5Fqo5um296zpJGvRUeO6S44U/EfJAGShtqWw
 
     for keyword in ('read-history', 'write-history', 'dirreq-read-history', 'dirreq-write-history'):
       base_attr = keyword.replace('-', '_').replace('dirreq', 'dir')
-      end_attr = base_attr + '_end'
-      interval_attr = base_attr + '_interval'
-      values_attr = base_attr + '_values'
+      end_attr = f'{base_attr}_end'
+      interval_attr = f'{base_attr}_interval'
+      values_attr = f'{base_attr}_values'
 
       desc = RelayExtraInfoDescriptor.create({keyword: '2012-05-03 12:07:50 (500 s) 50,11,5'})
       self.assertEqual(datetime.datetime(2012, 5, 3, 12, 7, 50), getattr(desc, end_attr))
@@ -527,7 +527,8 @@ k0d2aofcVbHr4fPQOSST0LXDrhFl5Fqo5um296zpJGvRUeO6S44U/EfJAGShtqWw
       self.assertEqual([50, 11, 5], getattr(desc, values_attr))
 
     for test_value in ('', ' '):
-      desc = RelayExtraInfoDescriptor.create({'write-history': '2012-05-03 12:07:50 (500 s)%s' % test_value})
+      desc = RelayExtraInfoDescriptor.create(
+          {'write-history': f'2012-05-03 12:07:50 (500 s){test_value}'})
       self.assertEqual(datetime.datetime(2012, 5, 3, 12, 7, 50), desc.write_history_end)
       self.assertEqual(500, desc.write_history_interval)
       self.assertEqual([], desc.write_history_values)

@@ -54,15 +54,15 @@ def _get_fingerprint(arg: str, controller: stem.control.Controller) -> str:
     try:
       return controller.get_network_status(arg).fingerprint
     except:
-      raise ValueError("Unable to find a relay with the nickname of '%s'" % arg)
+      raise ValueError(f"Unable to find a relay with the nickname of '{arg}'")
   elif ':' in arg or stem.util.connection.is_valid_ipv4_address(arg):
     if ':' in arg:
       address, port = arg.rsplit(':', 1)
 
       if not stem.util.connection.is_valid_ipv4_address(address):
-        raise ValueError("'%s' isn't a valid IPv4 address" % address)
+        raise ValueError(f"'{address}' isn't a valid IPv4 address")
       elif port and not stem.util.connection.is_valid_port(port):
-        raise ValueError("'%s' isn't a valid port" % port)
+        raise ValueError(f"'{port}' isn't a valid port")
 
       port = int(port)
     else:
@@ -71,12 +71,12 @@ def _get_fingerprint(arg: str, controller: stem.control.Controller) -> str:
     matches = {}
 
     for desc in controller.get_network_statuses():
-      if desc.address == address:
-        if not port or desc.or_port == port:
+      if not port or desc.or_port == port:
+        if desc.address == address:
           matches[desc.or_port] = desc.fingerprint
 
-    if len(matches) == 0:
-      raise ValueError('No relays found at %s' % arg)
+    if not matches:
+      raise ValueError(f'No relays found at {arg}')
     elif len(matches) == 1:
       return list(matches.values())[0]
     else:
@@ -87,7 +87,7 @@ def _get_fingerprint(arg: str, controller: stem.control.Controller) -> str:
 
       raise ValueError(response)
   else:
-    raise ValueError("'%s' isn't a fingerprint, nickname, or IP address" % arg)
+    raise ValueError(f"'{arg}' isn't a fingerprint, nickname, or IP address")
 
 
 @contextlib.contextmanager
@@ -197,7 +197,10 @@ class ControlInterpreter(code.InteractiveConsole):
     # being optional.
 
     if not ns_desc:
-      return format('Unable to find consensus information for %s' % fingerprint, *ERROR_OUTPUT)
+      return format(
+          f'Unable to find consensus information for {fingerprint}',
+          *ERROR_OUTPUT,
+      )
 
     # More likely than not we'll have the microdescriptor but not server and
     # extrainfo descriptors. If so then fetching them.
@@ -220,11 +223,14 @@ class ControlInterpreter(code.InteractiveConsole):
       pass
 
     try:
-      address_extrainfo.append(cast(str, self._controller.get_info('ip-to-country/%s' % ns_desc.address)))
+      address_extrainfo.append(
+          cast(str,
+               self._controller.get_info(f'ip-to-country/{ns_desc.address}')))
     except:
       pass
 
-    address_extrainfo_label = ' (%s)' % ', '.join(address_extrainfo) if address_extrainfo else ''
+    address_extrainfo_label = (f" ({', '.join(address_extrainfo)})"
+                               if address_extrainfo else '')
 
     if server_desc:
       exit_policy_label = str(server_desc.exit_policy)
@@ -234,8 +240,9 @@ class ControlInterpreter(code.InteractiveConsole):
       exit_policy_label = 'Unknown'
 
     lines = [
-      '%s (%s)' % (ns_desc.nickname, fingerprint),
-      format('address: ', *BOLD_OUTPUT) + '%s:%s%s' % (ns_desc.address, ns_desc.or_port, address_extrainfo_label),
+        f'{ns_desc.nickname} ({fingerprint})',
+        format('address: ', *BOLD_OUTPUT) +
+        f'{ns_desc.address}:{ns_desc.or_port}{address_extrainfo_label}',
     ]
 
     if server_desc:
@@ -281,13 +288,16 @@ class ControlInterpreter(code.InteractiveConsole):
 
     if not arg:
       status = 'enabled' if self._run_python_commands else 'disabled'
-      return format('Python support is currently %s.' % status, *STANDARD_OUTPUT)
+      return format(f'Python support is currently {status}.', *STANDARD_OUTPUT)
     elif arg.lower() == 'enable':
       self._run_python_commands = True
     elif arg.lower() == 'disable':
       self._run_python_commands = False
     else:
-      return format("'%s' is not recognized. Please run either '/python enable' or '/python disable'." % arg, *ERROR_OUTPUT)
+      return format(
+          f"'{arg}' is not recognized. Please run either '/python enable' or '/python disable'.",
+          *ERROR_OUTPUT,
+      )
 
     if self._run_python_commands:
       response = "Python support enabled, we'll now run non-interpreter commands as python."
@@ -341,7 +351,7 @@ class ControlInterpreter(code.InteractiveConsole):
       elif cmd == '/help':
         output = self.do_help(arg)
       else:
-        output = format("'%s' isn't a recognized command" % command, *ERROR_OUTPUT)
+        output = format(f"'{command}' isn't a recognized command", *ERROR_OUTPUT)
     else:
       cmd = cmd.upper()  # makes commands uppercase to match the spec
 

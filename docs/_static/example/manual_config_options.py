@@ -13,17 +13,24 @@ print('Which tor configuration would you like to learn about?  (press ctrl+c to 
 
 try:
   while True:
-    requested_option = input('> ').strip()
-
-    if requested_option:
+    if requested_option := input('> ').strip():
       if requested_option in manual.config_options:
         option = manual.config_options[requested_option]
-        print(term.format('%s %s' % (option.name, option.usage), term.Color.GREEN, term.Attr.BOLD))
+        print(
+            term.format(
+                f'{option.name} {option.usage}',
+                term.Color.GREEN,
+                term.Attr.BOLD,
+            ))
         print(term.format(option.summary, term.Color.GREEN))  # brief description provided by stem
 
         print(term.format('\nFull Description:\n', term.Color.GREEN, term.Attr.BOLD))
         print(term.format(option.description + '\n', term.Color.GREEN))
       else:
-        print(term.format("Sorry, we don't have any information about %s. Are you sure it's an option?" % requested_option, term.Color.RED))
+        print(
+            term.format(
+                f"Sorry, we don't have any information about {requested_option}. Are you sure it's an option?",
+                term.Color.RED,
+            ))
 except KeyboardInterrupt:
   pass  # user pressed ctrl+c

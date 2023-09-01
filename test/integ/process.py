@@ -68,7 +68,7 @@ def run_tor(tor_cmd, *args, **kwargs):
   stdin = kwargs.pop('stdin', None)
 
   if kwargs:
-    raise ValueError('Got unexpected keyword arguments: %s' % kwargs)
+    raise ValueError(f'Got unexpected keyword arguments: {kwargs}')
 
   with torrc() as torrc_path:
     if with_torrc:
@@ -111,7 +111,7 @@ class TestProcess(unittest.TestCase):
     # Other lines are about libraries and compilers.
     tor_version = run_tor(tor_cmd,  '--version').split("\n")[0]
 
-    assert_equal('Tor version %s.' % test.tor_version(), tor_version)
+    assert_equal(f'Tor version {test.tor_version()}.', tor_version)
 
   @asynchronous
   def test_help_argument(tor_cmd):
@@ -122,7 +122,8 @@ class TestProcess(unittest.TestCase):
     help_output = run_tor(tor_cmd, '--help')
 
     if not help_output.startswith('Copyright (c) 2001') or not help_output.endswith('tor -f <torrc> [args]\nSee man page for options, or https://www.torproject.org/ for documentation.\n'):
-      raise AssertionError("Help output didn't have the expected strings: %s" % help_output)
+      raise AssertionError(
+          f"Help output didn't have the expected strings: {help_output}")
 
     assert_equal(help_output, run_tor(tor_cmd, '-h'), "'tor -h' should simply be an alias for 'tor --help'")
 
@@ -158,7 +159,9 @@ class TestProcess(unittest.TestCase):
     output = run_tor(tor_cmd, '--hush', '--hash-password', 'my_password').splitlines()[-1]
 
     if not re.match('^16:[0-9A-F]{58}$', output):
-      raise AssertionError("Unexpected response from 'tor --hash-password my_password': %s" % output)
+      raise AssertionError(
+          f"Unexpected response from 'tor --hash-password my_password': {output}"
+      )
 
     # I'm not gonna even pretend to understand the following. Ported directly
     # from tor's test_cmdline_args.py.
@@ -232,7 +235,7 @@ class TestProcess(unittest.TestCase):
       assert_equal(49, len(fingerprint_with_spaces))
 
       if not stem.util.tor_tools.is_valid_fingerprint(fingerprint):
-        raise AssertionError('We should have a valid fingerprint: %s' % fingerprint)
+        raise AssertionError(f'We should have a valid fingerprint: {fingerprint}')
 
       with open(os.path.join(data_directory, 'fingerprint')) as fingerprint_file:
         expected = 'stemIntegTest %s\n' % fingerprint
@@ -272,7 +275,7 @@ class TestProcess(unittest.TestCase):
           stem.process.launch_tor(tor_cmd)
           raise AssertionError("tor shoudn't have started")
         except KeyboardInterrupt as exc:
-          if os.path.exists('/proc/%s' % mock_tor_process.pid):
+          if os.path.exists(f'/proc/{mock_tor_process.pid}'):
             raise AssertionError('launch_tor() left a lingering tor process')
 
           assert_equal('nope', str(exc))
@@ -392,10 +395,7 @@ class TestProcess(unittest.TestCase):
         t.start()
         t.join()
 
-        if 'Invalid SocksPort' in str(raised_exc[0]):
-          return None  # got to the point of invoking tor
-        else:
-          return raised_exc[0]
+        return None if 'Invalid SocksPort' in str(raised_exc[0]) else raised_exc[0]
 
       exc = launch_async_with_timeout(0.5)
       assert_equal(OSError, type(exc))
@@ -443,7 +443,7 @@ class TestProcess(unittest.TestCase):
         await control_socket.send('GETCONF ControlPort')
         getconf_response = await control_socket.recv()
 
-        assert_equal('ControlPort=%s' % control_port, str(getconf_response))
+        assert_equal(f'ControlPort={control_port}', str(getconf_response))
       finally:
         if control_socket:
           await control_socket.close()
@@ -481,7 +481,7 @@ class TestProcess(unittest.TestCase):
         await control_socket.send('GETCONF ControlPort')
         getconf_response = await control_socket.recv()
 
-        assert_equal('ControlPort=%s' % control_port, str(getconf_response))
+        assert_equal(f'ControlPort={control_port}', str(getconf_response))
       finally:
         if control_socket:
           await control_socket.close()
@@ -540,7 +540,7 @@ class TestProcess(unittest.TestCase):
       except OSError:
         runtime = time.time() - start_time
 
-        if not (runtime > 0.05 and runtime < 3):
+        if runtime <= 0.05 or runtime >= 3:
           raise AssertionError('Test should have taken 0.05-3 seconds, took %0.1f instead' % runtime)
 
   @asynchronous

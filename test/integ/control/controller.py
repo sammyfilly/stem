@@ -108,7 +108,7 @@ class TestController(unittest.TestCase):
       await controller.signal(Signal.HUP)
 
       # I really hate adding a sleep here, but signal() is non-blocking.
-      while len(received_events) == 0:
+      while not received_events:
         if (time.time() - before) > 2:
           self.fail("We've waited a couple seconds for SIGHUP to generate an event, but it didn't come")
 
@@ -219,7 +219,7 @@ class TestController(unittest.TestCase):
 
       await controller.connect()
       await controller.authenticate(password = test.runner.CONTROL_PASSWORD)
-      self.assertTrue(len(event_buffer) == 0)
+      self.assertTrue(not event_buffer)
       await controller.set_conf('NodeFamily', 'A82F7EFDB570F6BC801805D0328D30A99403C401')
 
       await asyncio.wait_for(event_notice.wait(), timeout = 4)
@@ -250,7 +250,7 @@ class TestController(unittest.TestCase):
       # successful batch query, we don't know the values so just checking for
       # the keys
 
-      getinfo_params = set(['version', 'config-file', 'config/names'])
+      getinfo_params = {'version', 'config-file', 'config/names'}
       self.assertEqual(getinfo_params, set((await controller.get_info(['version', 'config-file', 'config/names'])).keys()))
 
       # non-existant option
@@ -363,9 +363,10 @@ class TestController(unittest.TestCase):
       auth_methods = []
 
       if test.runner.Torrc.COOKIE in tor_options:
-        auth_methods.append(stem.connection.AuthMethod.COOKIE)
-        auth_methods.append(stem.connection.AuthMethod.SAFECOOKIE)
-
+        auth_methods.extend((
+            stem.connection.AuthMethod.COOKIE,
+            stem.connection.AuthMethod.SAFECOOKIE,
+        ))
       if test.runner.Torrc.PASSWORD in tor_options:
         auth_methods.append(stem.connection.AuthMethod.PASSWORD)
 
@@ -1191,7 +1192,7 @@ class TestController(unittest.TestCase):
       circuit_id = await controller.new_circuit()
 
       with self.assertRaises(stem.InvalidArguments):
-        await controller.close_circuit(circuit_id + '1024')
+        await controller.close_circuit(f'{circuit_id}1024')
 
       with self.assertRaises(stem.InvalidRequest):
         await controller.close_circuit('')
@@ -1222,7 +1223,7 @@ class TestController(unittest.TestCase):
     # Because we do not get a stream id when opening a stream,
     #  try to match the target for which we asked a stream.
 
-    self.assertTrue('%s:%s' % (host, port) in [stream.target for stream in streams])
+    self.assertTrue(f'{host}:{port}' in [stream.target for stream in streams])
 
   @test.require.controller
   @test.require.online
@@ -1295,7 +1296,7 @@ class TestController(unittest.TestCase):
       self.assertEquals(len(response), 1)
       addr1, target = list(response.mapped.items())[0]
 
-      self.assertTrue('%s did not start with 127.' % addr1, addr1.startswith('127.'))
+      self.assertTrue(f'{addr1} did not start with 127.', addr1.startswith('127.'))
       self.assertEquals('quux', target)
 
       # try a virtual mapping to IPv6, the default IPv6 virtualaddressrange is FE80::/10
@@ -1305,14 +1306,14 @@ class TestController(unittest.TestCase):
       self.assertEquals(1, len(response))
       addr2, target = list(response.mapped.items())[0]
 
-      self.assertTrue(addr2.startswith('[fe'), '%s did not start with [fe.' % addr2)
+      self.assertTrue(addr2.startswith('[fe'), f'{addr2} did not start with [fe.')
       self.assertEquals('quibble', target)
 
       async def address_mappings(addr_type):
-        response = await controller.get_info(['address-mappings/%s' % addr_type])
+        response = await controller.get_info([f'address-mappings/{addr_type}'])
         result = {}
 
-        for line in response['address-mappings/%s' % addr_type].splitlines():
+        for line in response[f'address-mappings/{addr_type}'].splitlines():
           k, v, timeout = line.split()
           result[k] = v
 
@@ -1775,8 +1776,8 @@ class TestController(unittest.TestCase):
           TEST_ROUTER_STATUS_ENTRY = desc
           break
 
-      if TEST_ROUTER_STATUS_ENTRY is None:
-        # this is only likely to occure if we can't get descriptors
-        self.skipTest('(no named relays)')
+    if TEST_ROUTER_STATUS_ENTRY is None:
+      # this is only likely to occure if we can't get descriptors
+      self.skipTest('(no named relays)')
 
     return TEST_ROUTER_STATUS_ENTRY

@@ -368,7 +368,7 @@ class Query(object):
     super(Query, self).__init__()
 
     if not resource.startswith('/'):
-      raise ValueError("Resources should start with a '/': %s" % resource)
+      raise ValueError(f"Resources should start with a '/': {resource}")
 
     if resource.endswith('.z'):
       compression = [Compression.GZIP]
@@ -378,7 +378,9 @@ class Query(object):
     elif isinstance(compression, stem.descriptor._Compression):
       compression = [compression]  # caller provided only a single option
     else:
-      raise ValueError('Compression should be a list of stem.descriptor.Compression, was %s (%s)' % (compression, type(compression).__name__))
+      raise ValueError(
+          f'Compression should be a list of stem.descriptor.Compression, was {compression} ({type(compression).__name__})'
+      )
 
     if Compression.ZSTD in compression and not Compression.ZSTD.available:
       compression.remove(Compression.ZSTD)
@@ -401,7 +403,9 @@ class Query(object):
         if isinstance(endpoint, (stem.ORPort, stem.DirPort)):
           self.endpoints.append(endpoint)
         else:
-          raise ValueError("Endpoints must be an stem.ORPort or stem.DirPort. '%s' is a %s." % (endpoint, type(endpoint).__name__))
+          raise ValueError(
+              f"Endpoints must be an stem.ORPort or stem.DirPort. '{endpoint}' is a {type(endpoint).__name__}."
+          )
 
     self.resource = resource
     self.compression = compression
@@ -549,8 +553,7 @@ class Query(object):
         yield desc
 
   def __iter__(self) -> Iterator[stem.descriptor.Descriptor]:
-    for desc in self.run(True):
-      yield desc
+    yield from self.run(True)
 
   async def __aiter__(self) -> AsyncIterator[stem.descriptor.Descriptor]:
     async for desc in self.run_async(True):
@@ -568,11 +571,10 @@ class Query(object):
       from by this request
     """
 
-    if use_authority or not self.endpoints:
-      picked = random.choice([auth for auth in stem.directory.Authority.from_cache().values() if auth.nickname not in DIR_PORT_BLACKLIST])
-      return stem.DirPort(picked.address, picked.dir_port)
-    else:
+    if not use_authority and self.endpoints:
       return random.choice(self.endpoints)
+    picked = random.choice([auth for auth in stem.directory.Authority.from_cache().values() if auth.nickname not in DIR_PORT_BLACKLIST])
+    return stem.DirPort(picked.address, picked.dir_port)
 
   async def _download_descriptors(self, retries: int, timeout: Optional[float]) -> List['stem.descriptor.Descriptor']:
     self.start_time = time.time()
@@ -584,12 +586,14 @@ class Query(object):
       endpoint = self._pick_endpoint(use_authority = retries == 0 and self.fall_back_to_authority)
 
       if isinstance(endpoint, stem.ORPort):
-        downloaded_from = 'ORPort %s:%s (resource %s)' % (endpoint.address, endpoint.port, self.resource)
+        downloaded_from = f'ORPort {endpoint.address}:{endpoint.port} (resource {self.resource})'
       elif isinstance(endpoint, stem.DirPort):
         downloaded_from = 'http://%s:%i/%s' % (endpoint.address, endpoint.port, self.resource.lstrip('/'))
         self.download_url = downloaded_from
       else:
-        raise ValueError("BUG: endpoints can only be ORPorts or DirPorts, '%s' was a %s" % (endpoint, type(endpoint).__name__))
+        raise ValueError(
+            f"BUG: endpoints can only be ORPorts or DirPorts, '{endpoint}' was a {type(endpoint).__name__}"
+        )
 
       try:
         response = await asyncio.wait_for(self._download_from(endpoint), time_remaining)
@@ -621,16 +625,18 @@ class Query(object):
         if retries > 0:
           log.debug("Failed to download descriptors from '%s' (%i retries remaining): %s" % (downloaded_from, retries, exception))
         else:
-          log.debug("Failed to download descriptors from '%s': %s" % (self.download_url, exception))
+          log.debug(
+              f"Failed to download descriptors from '{self.download_url}': {exception}"
+          )
 
           raise
 
   async def _download_from(self, endpoint: stem.Endpoint) -> bytes:
-    http_request = '\r\n'.join((
-      'GET %s HTTP/1.0' % self.resource,
-      'Accept-Encoding: %s' % ', '.join(map(lambda c: c.encoding, self.compression)),
-      'User-Agent: %s' % stem.USER_AGENT,
-    )) + '\r\n\r\n'
+    http_request = ('\r\n'.join((
+        f'GET {self.resource} HTTP/1.0',
+        f"Accept-Encoding: {', '.join(map(lambda c: c.encoding, self.compression))}",
+        f'User-Agent: {stem.USER_AGENT}',
+    )) + '\r\n\r\n')
 
     if isinstance(endpoint, stem.ORPort):
       link_protocols = endpoint.link_protocols if endpoint.link_protocols else [3]
@@ -644,7 +650,9 @@ class Query(object):
 
       return await reader.read()
     else:
-      raise ValueError("BUG: endpoints can only be ORPorts or DirPorts, '%s' was a %s" % (endpoint, type(endpoint).__name__))
+      raise ValueError(
+          f"BUG: endpoints can only be ORPorts or DirPorts, '{endpoint}' was a {type(endpoint).__name__}"
+      )
 
 
 class DescriptorDownloader(object):
@@ -670,7 +678,7 @@ class DescriptorDownloader(object):
         self.use_directory_mirrors()
         log.debug('Retrieved directory mirrors (took %0.2fs)' % (time.time() - start_time))
       except Exception as exc:
-        log.debug('Unable to retrieve directory mirrors: %s' % exc)
+        log.debug(f'Unable to retrieve directory mirrors: {exc}')
 
   def use_directory_mirrors(self) -> stem.descriptor.networkstatus.NetworkStatusDocumentV3:
     """
@@ -684,7 +692,10 @@ class DescriptorDownloader(object):
     """
 
     directories = [auth for auth in stem.directory.Authority.from_cache().values() if auth.nickname not in DIR_PORT_BLACKLIST]
-    new_endpoints = set([stem.DirPort(directory.address, directory.dir_port) for directory in directories])
+    new_endpoints = {
+        stem.DirPort(directory.address, directory.dir_port)
+        for directory in directories
+    }
 
     consensus = list(self.get_consensus(document_handler = stem.descriptor.DocumentHandler.DOCUMENT).run())[0]
 
@@ -738,7 +749,7 @@ class DescriptorDownloader(object):
       if len(fingerprints) > MAX_FINGERPRINTS:
         raise ValueError('Unable to request more than %i descriptors at a time by their fingerprints' % MAX_FINGERPRINTS)
 
-      resource = '/tor/server/fp/%s' % '+'.join(fingerprints)
+      resource = f"/tor/server/fp/{'+'.join(fingerprints)}"
 
     return self.query(resource, **query_args)
 
@@ -768,7 +779,7 @@ class DescriptorDownloader(object):
       if len(fingerprints) > MAX_FINGERPRINTS:
         raise ValueError('Unable to request more than %i descriptors at a time by their fingerprints' % MAX_FINGERPRINTS)
 
-      resource = '/tor/extra/fp/%s' % '+'.join(fingerprints)
+      resource = f"/tor/extra/fp/{'+'.join(fingerprints)}"
 
     return self.query(resource, **query_args)
 
@@ -815,7 +826,7 @@ class DescriptorDownloader(object):
     if len(hashes) > MAX_MICRODESCRIPTOR_HASHES:
       raise ValueError('Unable to request more than %i microdescriptors at a time by their hashes' % MAX_MICRODESCRIPTOR_HASHES)
 
-    return self.query('/tor/micro/d/%s' % '-'.join(hashes), **query_args)
+    return self.query(f"/tor/micro/d/{'-'.join(hashes)}", **query_args)
 
   def get_consensus(self, authority_v3ident: Optional[str] = None, microdescriptor: bool = False, **query_args: Any) -> 'stem.descriptor.remote.Query':
     """
@@ -843,7 +854,7 @@ class DescriptorDownloader(object):
       resource = '/tor/status-vote/current/consensus'
 
     if authority_v3ident:
-      resource += '/%s' % authority_v3ident
+      resource += f'/{authority_v3ident}'
 
     consensus_query = self.query(resource, **query_args)
 
@@ -909,7 +920,7 @@ class DescriptorDownloader(object):
       if len(authority_v3idents) > MAX_FINGERPRINTS:
         raise ValueError('Unable to request more than %i key certificates at a time by their identity fingerprints' % MAX_FINGERPRINTS)
 
-      resource = '/tor/keys/fp/%s' % '+'.join(authority_v3idents)
+      resource = f"/tor/keys/fp/{'+'.join(authority_v3idents)}"
 
     return self.query(resource, **query_args)
 
@@ -1000,9 +1011,7 @@ class DescriptorDownloader(object):
       type can't be determined when 'descriptor_type' is **None**
     """
 
-    args = dict(self._default_args)
-    args.update(query_args)
-
+    args = dict(self._default_args) | query_args
     if 'endpoints' not in args:
       args['endpoints'] = self._endpoints
 
@@ -1040,7 +1049,9 @@ def _http_body_and_headers(data: bytes) -> Tuple[bytes, Dict[str, str]]:
   header_data, body_data = data.split(b'\r\n\r\n', 1)
 
   if not first_line.startswith(b'HTTP/1.0 2'):
-    raise stem.ProtocolError("Response should begin with HTTP success, but was '%s'" % str_tools._to_unicode(first_line))
+    raise stem.ProtocolError(
+        f"Response should begin with HTTP success, but was '{str_tools._to_unicode(first_line)}'"
+    )
 
   headers = {}
 
@@ -1060,7 +1071,7 @@ def _http_body_and_headers(data: bytes) -> Tuple[bytes, Dict[str, str]]:
     if encoding == compression.encoding:
       return compression.decompress(body_data).rstrip(), headers
 
-  raise ValueError("'%s' is an unrecognized encoding" % encoding)
+  raise ValueError(f"'{encoding}' is an unrecognized encoding")
 
 
 def _guess_descriptor_type(resource: str) -> str:
@@ -1090,4 +1101,4 @@ def _guess_descriptor_type(resource: str) -> str:
     elif resource.endswith('/bandwidth'):
       return 'bandwidth-file 1.0'
 
-  raise ValueError("Unable to determine the descriptor type for '%s'" % resource)
+  raise ValueError(f"Unable to determine the descriptor type for '{resource}'")

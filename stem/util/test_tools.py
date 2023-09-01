@@ -76,7 +76,8 @@ def assert_equal(expected: Any, actual: Any, msg: Optional[str] = None) -> None:
   """
 
   if expected != actual:
-    raise AssertionError("Expected '%s' but was '%s'" % (expected, actual) if msg is None else msg)
+    raise AssertionError(
+        f"Expected '{expected}' but was '{actual}'" if msg is None else msg)
 
 
 def assert_in(expected: Any, actual: Any, msg: Optional[str] = None) -> None:
@@ -93,7 +94,8 @@ def assert_in(expected: Any, actual: Any, msg: Optional[str] = None) -> None:
   """
 
   if expected not in actual:
-    raise AssertionError("Expected '%s' to be within '%s'" % (expected, actual) if msg is None else msg)
+    raise AssertionError(f"Expected '{expected}' to be within '{actual}'"
+                         if msg is None else msg)
 
 
 def asynchronous(func: Callable) -> Callable:
@@ -125,7 +127,7 @@ class AsyncTest(object):
   """
 
   def __init__(self, runner: Callable, args: Optional[Any] = None, threaded: bool = False) -> None:
-    self.name = '%s.%s' % (runner.__module__, runner.__name__)
+    self.name = f'{runner.__module__}.{runner.__name__}'
 
     self._runner = runner
     self._runner_args = args
@@ -168,9 +170,9 @@ class AsyncTest(object):
 
         if self._threaded:
           self._process = threading.Thread(
-            target = _wrapper,
-            args = (child_pipe, self._runner, self._runner_args),
-            name = 'Background test of %s' % self.name,
+              target=_wrapper,
+              args=(child_pipe, self._runner, self._runner_args),
+              name=f'Background test of {self.name}',
           )
 
           self._process.daemon = True
@@ -197,12 +199,11 @@ class AsyncTest(object):
         self._process.join()
         self._status = AsyncStatus.FINISHED
 
-      if test and self._result.type == 'failure':
-        test.fail(self._result.msg)
-      elif test and self._result.type == 'error':
-        test.fail(self._result.msg)
-      elif test and self._result.type == 'skipped':
-        test.skipTest(self._result.msg)
+      if test:
+        if self._result.type in ['failure', 'error']:
+          test.fail(self._result.msg)
+        elif self._result.type == 'skipped':
+          test.skipTest(self._result.msg)
 
 
 class Issue(collections.namedtuple('Issue', ['line_number', 'message', 'line'])):
@@ -228,6 +229,8 @@ class TimedTestRunner(unittest.TextTestRunner):
     for t in getattr(test, '_tests', ()):
       original_type = type(t)  # type: Any
 
+
+
       class _TestWrapper(original_type):
         def run(self, result: Optional[Any] = None) -> Any:
           start_time = time.time()
@@ -246,7 +249,8 @@ class TimedTestRunner(unittest.TextTestRunner):
           vended API then please let us know.
           """
 
-          return self.assertRaisesRegexp(exc_type, '^%s$' % re.escape(exc_msg), *args, **kwargs)
+          return self.assertRaisesRegexp(exc_type, f'^{re.escape(exc_msg)}$',
+                                         *args, **kwargs)
 
         def shortDescription(self):
           # Python now prints the first line of a test's docstring by default.
@@ -257,10 +261,11 @@ class TimedTestRunner(unittest.TextTestRunner):
           return None
 
         def id(self) -> str:
-          return '%s.%s.%s' % (original_type.__module__, original_type.__name__, self._testMethodName)
+          return f'{original_type.__module__}.{original_type.__name__}.{self._testMethodName}'
 
         def __str__(self) -> str:
-          return '%s (%s.%s)' % (self._testMethodName, original_type.__module__, original_type.__name__)
+          return f'{self._testMethodName} ({original_type.__module__}.{original_type.__name__})'
+
 
       t.__class__ = _TestWrapper
 
@@ -308,7 +313,7 @@ def clean_orphaned_pyc(paths: Sequence[str]) -> List[str]:
       # If we're running python 3 then the *.pyc files are no longer bundled
       # with the *.py. Rather, they're in a __pycache__ directory.
 
-      pycache = '%s__pycache__%s' % (os.path.sep, os.path.sep)
+      pycache = f'{os.path.sep}__pycache__{os.path.sep}'
 
       if pycache in pyc_path:
         directory, pycache_filename = pyc_path.split(pycache, 1)
@@ -599,12 +604,12 @@ def type_issues(args: Sequence[str]) -> Dict[str, List['stem.util.test_tools.Iss
       if line.startswith('Found ') and line.endswith(' source files)'):
         continue  # ex. "Found 1786 errors in 45 files (checked 49 source files)"
       elif line.count(':') < 3:
-        raise ValueError('Failed to parse mypy line: %s' % line)
+        raise ValueError(f'Failed to parse mypy line: {line}')
 
       path, line_number, _, issue = line.split(':', 3)
 
       if not line_number.isdigit():
-        raise ValueError('Malformed line number on: %s' % line)
+        raise ValueError(f'Malformed line number on: {line}')
 
       issue = issue.strip()
       line_number = int(line_number)
@@ -614,11 +619,7 @@ def type_issues(args: Sequence[str]) -> Dict[str, List['stem.util.test_tools.Iss
 
       # skip getting code if there's too many reported issues
 
-      if len(lines) < 25:
-        line = linecache.getline(path, line_number).strip()
-      else:
-        line = ''
-
+      line = linecache.getline(path, line_number).strip() if len(lines) < 25 else ''
       issues.setdefault(path, []).append(Issue(line_number, issue, line))
 
   return issues
@@ -643,13 +644,9 @@ def _module_exists(module_name: str) -> bool:
 def _python_files(paths: Sequence[str]) -> Iterator[str]:
   for path in paths:
     for file_path in stem.util.system.files_with_suffix(path, '.py'):
-      skip = False
-
-      for exclude_path in CONFIG['exclude_paths']:
-        if re.match(exclude_path, file_path):
-          skip = True
-          break
-
+      skip = any(
+          re.match(exclude_path, file_path)
+          for exclude_path in CONFIG['exclude_paths'])
       if not skip:
         yield file_path
 

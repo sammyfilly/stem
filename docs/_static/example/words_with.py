@@ -15,13 +15,11 @@ def get_words_with(target, attr):
   :returns: **iterable** with words containing that substring
   """
 
-  word_matcher = re.compile('(.*)(%s)(.*)' % target, re.I)
+  word_matcher = re.compile(f'(.*)({target})(.*)', re.I)
 
   with open('/etc/dictionaries-common/words') as dictionary_file:
-    for word in dictionary_file.readlines():
-      match = word_matcher.match(word)
-
-      if match:
+    for word in dictionary_file:
+      if match := word_matcher.match(word):
         yield ''.join((
           match.group(1),
           term.format(match.group(2), *attr),
@@ -36,7 +34,7 @@ def main():
   print("Words with '%s' include...\n" % term.format(target, *attr))
 
   for words in itertools.zip_longest(*(get_words_with(target, attr),) * 4):
-    print('%-30s%-30s%-30s%-30s' % tuple([w if w else '' for w in words]))
+    print('%-30s%-30s%-30s%-30s' % tuple(w if w else '' for w in words))
 
 
 if __name__ == '__main__':

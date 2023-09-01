@@ -20,19 +20,24 @@ def role_ticket(name, rawtext, argument, lineno, inliner, options = {}, content 
     project, ticket = 'stem', argument
 
   if not ticket.isdigit() or int(ticket) <= 0:
-    return error('Invalid ticket number: %s' % ticket, rawtext, lineno, inliner)
+    return error(f'Invalid ticket number: {ticket}', rawtext, lineno, inliner)
 
   if project == 'stem':
-    label = 'ticket %s' % ticket
+    label = f'ticket {ticket}'
     url = STEM_TICKET_URL.format(ticket = ticket)
   elif project == 'archive':
-    label = 'ticket %s' % ticket
+    label = f'ticket {ticket}'
     url = ARCHIVE_TICKET_URL.format(ticket = ticket)
   elif project == 'tor':
-    label = 'tor ticket %s' % ticket
+    label = f'tor ticket {ticket}'
     url = TOR_TICKET_URL.format(ticket = ticket)
   else:
-    return error('Project %s is unrecognized: %s' % (project, argument), rawtext, lineno, inliner)
+    return error(
+        f'Project {project} is unrecognized: {argument}',
+        rawtext,
+        lineno,
+        inliner,
+    )
 
   return (
     [reference(rawtext, label, refuri = url, **options)],
@@ -46,7 +51,12 @@ def role_spec(name, rawtext, argument, lineno, inliner, options = {}, content = 
   """
 
   if not re.match('^[0-9a-f]{7}$', argument):
-    return error('Spec tag expects a short commit id (seven hex characters): %s' % argument, rawtext, lineno, inliner)
+    return error(
+        f'Spec tag expects a short commit id (seven hex characters): {argument}',
+        rawtext,
+        lineno,
+        inliner,
+    )
 
   return (
     [reference(rawtext, 'spec', refuri = SPEC_URL.format(commit = argument), **options)],

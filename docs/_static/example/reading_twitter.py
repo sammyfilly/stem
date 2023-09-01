@@ -35,7 +35,7 @@ def oauth_signature(key_dict):
   fin_key = ''
 
   for key in sorted(key_dict.keys()):
-    fin_key += key + '=' + key_dict[key] + '&'
+    fin_key += f'{key}={key_dict[key]}&'
 
   fin_key = fin_key[:-1]
   fin_key = 'GET' + '&' + urllib.quote(TWITTER_API_URL, '') + '&' + urllib.quote(fin_key, '')
@@ -67,15 +67,17 @@ def poll_twitter_feed(user_id, tweet_count):
 
   key_dict['oauth_signature'] = oauth_signature(key_dict)
 
-  header_auth = 'OAuth ' + ', '.join(['%s="%s"' % (key, key_dict[key]) for key in HEADER_AUTH_KEYS])
+  header_auth = 'OAuth ' + ', '.join(
+      [f'{key}="{key_dict[key]}"' for key in HEADER_AUTH_KEYS])
 
   data = urllib.urlencode(url_values)
-  api_request = urllib2.Request(TWITTER_API_URL + '?' + data, headers = {'Authorization': header_auth})
+  api_request = urllib2.Request(f'{TWITTER_API_URL}?{data}',
+                                headers={'Authorization': header_auth})
 
   try:
     api_response = urllib2.urlopen(api_request).read()
   except:
-    raise OSError('Unable to reach %s' % TWITTER_API_URL)
+    raise OSError(f'Unable to reach {TWITTER_API_URL}')
 
   return json.loads(api_response)
 

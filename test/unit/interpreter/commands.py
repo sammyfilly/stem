@@ -157,7 +157,9 @@ class TestInterpreterCommands(unittest.TestCase):
     server_desc.contact = '1024D/28988BF5 arma mit edu'
 
     interpreter = ControlInterpreter(controller)
-    self.assertTrue(interpreter.run_command('/info ' + FINGERPRINT).startswith(EXPECTED_INFO_RESPONSE))
+    self.assertTrue(
+        interpreter.run_command(f'/info {FINGERPRINT}').startswith(
+            EXPECTED_INFO_RESPONSE))
 
   def test_unrecognized_interpreter_command(self):
     interpreter = ControlInterpreter(CONTROLLER)

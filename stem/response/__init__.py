@@ -124,7 +124,7 @@ def convert(response_type: str, message: 'stem.response.ControlMessage', **kwarg
   try:
     response_class = response_types[response_type]
   except TypeError:
-    raise TypeError('Unsupported response type: %s' % response_type)
+    raise TypeError(f'Unsupported response type: {response_type}')
 
   message.__class__ = response_class
   message._parse_message(**kwargs)  # type: ignore
@@ -240,11 +240,8 @@ class ControlMessage(object):
     :returns: **True** if any lines have a 2xx response code, **False** otherwise
     """
 
-    for code, _, _ in self._parsed_content:
-      if code.isdigit() and (200 <= int(code) < 300):
-        return True
-
-    return False
+    return any(code.isdigit() and (200 <= int(code) < 300)
+               for code, _, _ in self._parsed_content)
 
   # TODO: drop this alias when we provide better type support
 
@@ -384,8 +381,8 @@ class ControlLine(str):
   immutable). All methods are thread safe.
   """
 
-  def __new__(self, value: str) -> 'stem.response.ControlLine':
-    return str.__new__(self, value)  # type: ignore
+  def __new__(cls, value: str) -> 'stem.response.ControlLine':
+    return str.__new__(cls, value)
 
   def __init__(self, value: str) -> None:
     self._remainder = value
@@ -435,9 +432,7 @@ class ControlLine(str):
     """
 
     remainder = self._remainder  # temp copy to avoid locking
-    key_match = KEY_ARG.match(remainder)
-
-    if key_match:
+    if key_match := KEY_ARG.match(remainder):
       if key and key != key_match.groups()[0]:
         return False
 
@@ -459,9 +454,7 @@ class ControlLine(str):
     """
 
     remainder = self._remainder
-    key_match = KEY_ARG.match(remainder)
-
-    if key_match:
+    if key_match := KEY_ARG.match(remainder):
       return key_match.groups()[0]
     else:
       return None
@@ -531,7 +524,8 @@ class ControlLine(str):
       key_match = KEY_ARG.match(self._remainder)
 
       if not key_match:
-        raise ValueError("the next entry isn't a KEY=VALUE mapping: " + self._remainder)
+        raise ValueError(
+            f"the next entry isn't a KEY=VALUE mapping: {self._remainder}")
 
       # parse off the key
       key = key_match.groups()[0]
@@ -558,7 +552,7 @@ def _parse_entry(line: str, quoted: bool, escaped: bool, get_bytes: bool) -> Tup
     * **IndexError** if there's nothing to parse from the line
   """
 
-  if line == '':
+  if not line:
     raise IndexError('no remaining content to parse')
 
   next_entry, remainder = '', line
@@ -568,15 +562,14 @@ def _parse_entry(line: str, quoted: bool, escaped: bool, get_bytes: bool) -> Tup
     start_quote, end_quote = _get_quote_indices(remainder, escaped)
 
     if start_quote != 0 or end_quote == -1:
-      raise ValueError("the next entry isn't a quoted value: " + line)
+      raise ValueError(f"the next entry isn't a quoted value: {line}")
 
-    next_entry, remainder = remainder[1:end_quote], remainder[end_quote + 1:]
-  else:
-    # non-quoted value, just need to check if there's more data afterward
-    if ' ' in remainder:
-      next_entry, remainder = remainder.split(' ', 1)
     else:
-      next_entry, remainder = remainder, ''
+      next_entry, remainder = remainder[1:end_quote], remainder[end_quote + 1:]
+  elif ' ' in remainder:
+    next_entry, remainder = remainder.split(' ', 1)
+  else:
+    next_entry, remainder = remainder, ''
 
   if escaped:
     # Tor does escaping in its 'esc_for_log' function of 'common/util.c'. It's

@@ -44,7 +44,7 @@ class ProtocolInfoResponse(stem.response.ControlMessage):
     auth_methods, unknown_auth_methods = [], []
     remaining_lines = list(self)
 
-    if not self.is_ok() or not remaining_lines.pop() == 'OK':
+    if not self.is_ok() or remaining_lines.pop() != 'OK':
       raise stem.ProtocolError("PROTOCOLINFO response didn't have an OK status:\n%s" % self)
 
     # sanity check that we're a PROTOCOLINFO response
@@ -61,12 +61,15 @@ class ProtocolInfoResponse(stem.response.ControlMessage):
         #   PIVERSION = 1*DIGIT
 
         if line.is_empty():
-          raise stem.ProtocolError("PROTOCOLINFO response's initial line is missing the protocol version: %s" % line)
+          raise stem.ProtocolError(
+              f"PROTOCOLINFO response's initial line is missing the protocol version: {line}"
+          )
 
         try:
           self.protocol_version = int(line.pop())
         except ValueError:
-          raise stem.ProtocolError('PROTOCOLINFO response version is non-numeric: %s' % line)
+          raise stem.ProtocolError(
+              f'PROTOCOLINFO response version is non-numeric: {line}')
 
         # The piversion really should be '1' but, according to the spec, tor
         # does not necessarily need to provide the PROTOCOLINFO version that we
@@ -84,21 +87,27 @@ class ProtocolInfoResponse(stem.response.ControlMessage):
 
         # parse AuthMethod mapping
         if not line.is_next_mapping('METHODS'):
-          raise stem.ProtocolError("PROTOCOLINFO response's AUTH line is missing its mandatory 'METHODS' mapping: %s" % line)
+          raise stem.ProtocolError(
+              f"PROTOCOLINFO response's AUTH line is missing its mandatory 'METHODS' mapping: {line}"
+          )
 
         for method in line.pop_mapping()[1].split(','):
-          if method == 'NULL':
-            auth_methods.append(AuthMethod.NONE)
+          if method == 'COOKIE':
+            auth_methods.append(AuthMethod.COOKIE)
           elif method == 'HASHEDPASSWORD':
             auth_methods.append(AuthMethod.PASSWORD)
-          elif method == 'COOKIE':
-            auth_methods.append(AuthMethod.COOKIE)
+          elif method == 'NULL':
+            auth_methods.append(AuthMethod.NONE)
           elif method == 'SAFECOOKIE':
             auth_methods.append(AuthMethod.SAFECOOKIE)
           else:
             unknown_auth_methods.append(method)
-            message_id = 'stem.response.protocolinfo.unknown_auth_%s' % method
-            log.log_once(message_id, log.INFO, "PROTOCOLINFO response included a type of authentication that we don't recognize: %s" % method)
+            message_id = f'stem.response.protocolinfo.unknown_auth_{method}'
+            log.log_once(
+                message_id,
+                log.INFO,
+                f"PROTOCOLINFO response included a type of authentication that we don't recognize: {method}",
+            )
 
             # our auth_methods should have a single AuthMethod.UNKNOWN entry if
             # any unknown authentication methods exist
@@ -120,21 +129,27 @@ class ProtocolInfoResponse(stem.response.ControlMessage):
               pass
 
           if self.cookie_path is None:
-            raise stem.ProtocolError("Cookie path '%s' mismatches our filesystem encoding (%s)" % (repr(path), sys.getfilesystemencoding()))
+            raise stem.ProtocolError(
+                f"Cookie path '{repr(path)}' mismatches our filesystem encoding ({sys.getfilesystemencoding()})"
+            )
       elif line_type == 'VERSION':
         # Line format:
         #   VersionLine = "250-VERSION" SP "Tor=" TorVersion OptArguments CRLF
         #   TorVersion = QuotedString
 
         if not line.is_next_mapping('Tor', True):
-          raise stem.ProtocolError("PROTOCOLINFO response's VERSION line is missing its mandatory tor version mapping: %s" % line)
+          raise stem.ProtocolError(
+              f"PROTOCOLINFO response's VERSION line is missing its mandatory tor version mapping: {line}"
+          )
 
         try:
           self.tor_version = stem.version.Version(line.pop_mapping(True)[1])
         except ValueError as exc:
           raise stem.ProtocolError(exc)
       else:
-        log.debug("Unrecognized PROTOCOLINFO line type '%s', ignoring it: %s" % (line_type, line))
+        log.debug(
+            f"Unrecognized PROTOCOLINFO line type '{line_type}', ignoring it: {line}"
+        )
 
     self.auth_methods = tuple(auth_methods)
     self.unknown_auth_methods = tuple(unknown_auth_methods)

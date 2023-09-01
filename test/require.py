@@ -74,7 +74,7 @@ def needs(condition, message):
       if condition():
         return func(self, *args, **kwargs)
       else:
-        self.skipTest('(%s)' % message)
+        self.skipTest(f'({message})')
 
     return wrapped
 
@@ -98,7 +98,7 @@ def command(cmd):
   Skips the test unless a command is available on the path.
   """
 
-  return needs(lambda: stem.util.system.is_available(cmd), '%s unavailable' % cmd)
+  return needs(lambda: stem.util.system.is_available(cmd), f'{cmd} unavailable')
 
 
 def module(module_name):
@@ -112,7 +112,7 @@ def module(module_name):
   except:
     available = False
 
-  return needs(lambda: available, '%s unavailable' % module_name)
+  return needs(lambda: available, f'{module_name} unavailable')
 
 
 def version(req_version):
@@ -122,7 +122,8 @@ def version(req_version):
   :param stem.version.Version req_version: required tor version for the test
   """
 
-  return needs(lambda: test.tor_version() >= req_version, 'requires %s' % req_version)
+  return needs(lambda: test.tor_version() >= req_version,
+               f'requires {req_version}')
 
 
 def version_older_than(req_version):
@@ -132,7 +133,8 @@ def version_older_than(req_version):
   :param stem.version.Version req_version: the version that tor should be older than
   """
 
-  return needs(lambda: test.tor_version() < req_version, 'requires %s' % req_version)
+  return needs(lambda: test.tor_version() < req_version,
+               f'requires {req_version}')
 
 
 cryptography = needs(lambda: CRYPTOGRAPHY_AVAILABLE, 'requires cryptography')

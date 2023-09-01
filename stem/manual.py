@@ -142,7 +142,7 @@ def query(query: str, *param: str) -> 'sqlite3.Cursor':  # type: ignore
 
   try:
     import sqlite3
-  except (ImportError, ModuleNotFoundError):
+  except ImportError:
     raise ImportError('Querying requires the sqlite3 module')
 
   # The only reason to explicitly close the sqlite connection is to ensure
@@ -152,7 +152,7 @@ def query(query: str, *param: str) -> 'sqlite3.Cursor':  # type: ignore
   global DATABASE
 
   if DATABASE is None:
-    DATABASE = sqlite3.connect('file:%s?mode=ro' % CACHE_PATH, uri=True)
+    DATABASE = sqlite3.connect(f'file:{CACHE_PATH}?mode=ro', uri=True)
 
   return DATABASE.execute(query, param)
 
@@ -207,7 +207,9 @@ def _config(lowercase: bool = True) -> Dict[str, Union[List[str], str]]:
     config_dict['manual.important'] = [name.lower() if lowercase else name for name in config.get_value('manual.important', [], multiple = True)]
     return config_dict
   except Exception as exc:
-    stem.util.log.warn("BUG: stem failed to load its internal manual information from '%s': %s" % (config_path, exc))
+    stem.util.log.warn(
+        f"BUG: stem failed to load its internal manual information from '{config_path}': {exc}"
+    )
     return {}
 
 
@@ -226,31 +228,36 @@ def _manual_differences(previous_manual: 'stem.manual.Manual', new_manual: 'stem
       lines.append("* Manual's %s attribute changed\n" % attr)
 
       if attr in ('name', 'synopsis', 'description'):
-        lines.append('  Previously...\n\n%s\n' % previous_attr)
-        lines.append('  Updating to...\n\n%s' % new_attr)
+        lines.extend((
+            '  Previously...\n\n%s\n' % previous_attr,
+            '  Updating to...\n\n%s' % new_attr,
+        ))
       elif attr == 'config_options':
         for config_name, config_attr in new_attr.items():
           previous = previous_attr.get(config_name)
 
           if previous is None:
-            lines.append('  adding new config option => %s' % config_name)
+            lines.append(f'  adding new config option => {config_name}')
           elif config_attr != previous:
-            for attr in ('name', 'category', 'usage', 'summary', 'description'):
-              if getattr(config_attr, attr) != getattr(previous, attr):
-                lines.append('  modified %s (%s) => %s' % (config_name, attr, getattr(config_attr, attr)))
-
-        for config_name in set(previous_attr.keys()).difference(new_attr.keys()):
-          lines.append('  removing config option => %s' % config_name)
+            lines.extend(
+                f'  modified {config_name} ({attr}) => {getattr(config_attr, attr)}'
+                for attr in (
+                    'name',
+                    'category',
+                    'usage',
+                    'summary',
+                    'description',
+                ) if getattr(config_attr, attr) != getattr(previous, attr))
+        lines.extend(f'  removing config option => {config_name}'
+                     for config_name in set(previous_attr.keys()).difference(
+                         new_attr.keys()))
       else:
         added_items = set(new_attr.items()).difference(previous_attr.items())
         removed_items = set(previous_attr.items()).difference(new_attr.items())
 
-        for added_item in added_items:
-          lines.append('  adding %s => %s' % added_item)
-
-        for removed_item in removed_items:
-          lines.append('  removing %s => %s' % removed_item)
-
+        lines.extend('  adding %s => %s' % added_item for added_item in added_items)
+        lines.extend('  removing %s => %s' % removed_item
+                     for removed_item in removed_items)
       lines.append('\n')
 
   return '\n'.join(lines)
@@ -299,16 +306,18 @@ def download_man_page(path: Optional[str] = None, file_handle: Optional[BinaryIO
         shutil.copyfileobj(request, asciidoc_file)
     except:
       exc, stacktrace = sys.exc_info()[1:3]
-      message = "Unable to download tor's manual from %s to %s: %s" % (url, asciidoc_path, exc)
+      message = f"Unable to download tor's manual from {url} to {asciidoc_path}: {exc}"
       raise stem.DownloadFailed(url, exc, stacktrace, message)
 
     try:
-      stem.util.system.call('a2x -f manpage %s' % asciidoc_path)
+      stem.util.system.call(f'a2x -f manpage {asciidoc_path}')
 
       if not os.path.exists(manual_path):
         raise OSError('no man page was generated')
     except stem.util.system.CallError as exc:
-      raise OSError("Unable to run '%s': %s" % (exc.command, stem.util.str_tools._to_unicode(exc.stderr)))
+      raise OSError(
+          f"Unable to run '{exc.command}': {stem.util.str_tools._to_unicode(exc.stderr)}"
+      )
 
     if path:
       try:
@@ -391,25 +400,29 @@ class Manual(object):
 
     try:
       import sqlite3
-    except (ImportError, ModuleNotFoundError):
+    except ImportError:
       raise ImportError('Reading a sqlite cache requires the sqlite3 module')
 
     if path is None:
       path = CACHE_PATH
 
     if not os.path.exists(path):
-      raise OSError("%s doesn't exist" % path)
+      raise OSError(f"{path} doesn't exist")
 
     with sqlite3.connect(path) as conn:
       try:
         schema = conn.execute('SELECT version FROM schema').fetchone()[0]
 
         if schema != SCHEMA_VERSION:
-          raise SchemaMismatch("Stem's current manual schema version is %s, but %s was version %s" % (SCHEMA_VERSION, path, schema), schema, (SCHEMA_VERSION,))
+          raise SchemaMismatch(
+              f"Stem's current manual schema version is {SCHEMA_VERSION}, but {path} was version {schema}",
+              schema,
+              (SCHEMA_VERSION, ),
+          )
 
         name, synopsis, description, man_commit, stem_commit = conn.execute('SELECT name, synopsis, description, man_commit, stem_commit FROM metadata').fetchone()
       except sqlite3.OperationalError as exc:
-        raise OSError('Failed to read database metadata from %s: %s' % (path, exc))
+        raise OSError(f'Failed to read database metadata from {path}: {exc}')
 
       commandline = dict(conn.execute('SELECT name, description FROM commandline').fetchall())
       signals = dict(conn.execute('SELECT name, description FROM signals').fetchall())
@@ -445,12 +458,14 @@ class Manual(object):
     :raises: **OSError** if unable to retrieve the manual
     """
 
-    man_cmd = 'man %s -P cat %s' % ('--encoding=ascii' if HAS_ENCODING_ARG else '', man_path)
+    man_cmd = (
+        f"man {'--encoding=ascii' if HAS_ENCODING_ARG else ''} -P cat {man_path}"
+    )
 
     try:
       man_output = stem.util.system.call(man_cmd, env = {'MANWIDTH': '10000000'})
     except OSError as exc:
-      raise OSError("Unable to run '%s': %s" % (man_cmd, exc))
+      raise OSError(f"Unable to run '{man_cmd}': {exc}")
 
     categories = _get_categories(man_output)
     config_options = collections.OrderedDict()  # type: collections.OrderedDict[str, stem.manual.ConfigOption]
@@ -524,10 +539,10 @@ class Manual(object):
 
     try:
       import sqlite3
-    except (ImportError, ModuleNotFoundError):
+    except ImportError:
       raise ImportError('Saving a sqlite cache requires the sqlite3 module')
 
-    tmp_path = path + '.new'
+    tmp_path = f'{path}.new'
 
     if os.path.exists(tmp_path):
       os.remove(tmp_path)
@@ -675,7 +690,7 @@ def _add_config_options(config_options: Dict[str, 'stem.manual.ConfigOption'], c
         add_option(subtitle, description)
     else:
       name, usage = title.split(' ', 1) if ' ' in title else (title, '')
-      summary = str(_config().get('manual.summary.%s' % name.lower(), ''))
+      summary = str(_config().get(f'manual.summary.{name.lower()}', ''))
       config_options[name] = ConfigOption(name, category, usage, summary, _join_lines(description).strip())
 
   # Remove the section's description by finding the sentence the section
@@ -714,10 +729,9 @@ def _join_lines(lines: Sequence[str]) -> str:
   result = []  # type: List[str]
 
   for line in lines:
-    if not line:
-      if result and result[-1] != '\n':
-        result.append('\n')
-    else:
+    if line:
       result.append(line + '\n')
 
+    elif result and result[-1] != '\n':
+      result.append('\n')
   return ''.join(result).strip()

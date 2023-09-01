@@ -15,7 +15,7 @@ def get_bw_to_relay():
       if desc.exit_policy.is_exiting_allowed():
         bw_to_relay.setdefault(desc.observed_bandwidth, []).append(desc.nickname)
   except Exception as exc:
-    print('Unable to retrieve the server descriptors: %s' % exc)
+    print(f'Unable to retrieve the server descriptors: {exc}')
 
   return bw_to_relay
 

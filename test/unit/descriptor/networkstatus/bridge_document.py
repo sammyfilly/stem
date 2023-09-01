@@ -62,5 +62,9 @@ class TestBridgeNetworkStatusDocument(unittest.TestCase):
     self.assertEqual(datetime.datetime(2012, 6, 1, 4, 7, 4), document.published)
 
     self.assertEqual(2, len(document.routers))
-    self.assertEqual(set(['Unnamed', 'TolFuin']), set([desc.nickname for desc in document.routers.values()]))
+    self.assertEqual(
+        {'Unnamed', 'TolFuin'},
+        {desc.nickname
+         for desc in document.routers.values()},
+    )
     self.assertEqual([], document.get_unrecognized_lines())

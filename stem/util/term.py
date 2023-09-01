@@ -47,6 +47,7 @@ Utilities for working with the terminal.
   =================== ===========
 """
 
+
 import stem.util.enum
 import stem.util.str_tools
 
@@ -60,7 +61,7 @@ TERM_COLORS = ('BLACK', 'RED', 'GREEN', 'YELLOW', 'BLUE', 'MAGENTA', 'CYAN', 'WH
 DISABLE_COLOR_SUPPORT = False
 
 Color = stem.util.enum.Enum(*TERM_COLORS)
-BgColor = stem.util.enum.Enum(*['BG_' + color for color in TERM_COLORS])
+BgColor = stem.util.enum.Enum(*[f'BG_{color}' for color in TERM_COLORS])
 Attr = stem.util.enum.Enum('BOLD', 'UNDERLINE', 'HIGHLIGHT', 'READLINE_ESCAPE', 'LINES')
 
 # mappings of terminal attribute enums to their ANSI escape encoding
@@ -92,15 +93,10 @@ def encoding(*attrs: Union['stem.util.term.Color', 'stem.util.term.BgColor', 'st
     attr = stem.util.str_tools._to_camel_case(attr)
     term_encoding = FG_ENCODING.get(attr, None)
     term_encoding = BG_ENCODING.get(attr, term_encoding)
-    term_encoding = ATTR_ENCODING.get(attr, term_encoding)
-
-    if term_encoding:
+    if term_encoding := ATTR_ENCODING.get(attr, term_encoding):
       term_encodings.append(term_encoding)
 
-  if term_encodings:
-    return CSI % ';'.join(term_encodings)
-  else:
-    return None
+  return CSI % ';'.join(term_encodings) if term_encodings else None
 
 
 def format(msg: str, *attr: Union['stem.util.term.Color', 'stem.util.term.BgColor', 'stem.util.term.Attr']) -> str:

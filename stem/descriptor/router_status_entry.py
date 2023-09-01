@@ -84,9 +84,8 @@ def _parse_file(document_file: BinaryIO, validate: bool, entry_class: Type['stem
   # check if we're starting at the end of the section (ie, there's no entries to read)
   if section_end_keywords:
     first_keyword = None
-    line_match = KEYWORD_LINE.match(stem.util.str_tools._to_unicode(document_file.readline()))
-
-    if line_match:
+    if line_match := KEYWORD_LINE.match(
+        stem.util.str_tools._to_unicode(document_file.readline())):
       first_keyword = line_match.groups()[0]
 
     document_file.seek(start_position)
@@ -103,9 +102,7 @@ def _parse_file(document_file: BinaryIO, validate: bool, entry_class: Type['stem
       include_ending_keyword = True
     )
 
-    desc_content = bytes.join(b'', desc_lines)
-
-    if desc_content:
+    if desc_content := bytes.join(b'', desc_lines):
       yield entry_class(desc_content, validate, *extra_args)
 
       # check if we stopped at the end of the section
@@ -139,16 +136,20 @@ def _parse_r_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
 
   if len(r_comp) < 8:
     expected_field_count = 'eight' if include_digest else 'seven'
-    raise ValueError("%s 'r' line must have %s values: r %s" % (descriptor._name(), expected_field_count, value))
+    raise ValueError(
+        f"{descriptor._name()} 'r' line must have {expected_field_count} values: r {value}"
+    )
 
   if not stem.util.tor_tools.is_valid_nickname(r_comp[0]):
-    raise ValueError("%s nickname isn't valid: %s" % (descriptor._name(), r_comp[0]))
+    raise ValueError(f"{descriptor._name()} nickname isn't valid: {r_comp[0]}")
   elif not stem.util.connection.is_valid_ipv4_address(r_comp[5]):
-    raise ValueError("%s address isn't a valid IPv4 address: %s" % (descriptor._name(), r_comp[5]))
+    raise ValueError(
+        f"{descriptor._name()} address isn't a valid IPv4 address: {r_comp[5]}"
+    )
   elif not stem.util.connection.is_valid_port(r_comp[6]):
-    raise ValueError('%s ORPort is invalid: %s' % (descriptor._name(), r_comp[6]))
+    raise ValueError(f'{descriptor._name()} ORPort is invalid: {r_comp[6]}')
   elif not stem.util.connection.is_valid_port(r_comp[7], allow_zero = True):
-    raise ValueError('%s DirPort is invalid: %s' % (descriptor._name(), r_comp[7]))
+    raise ValueError(f'{descriptor._name()} DirPort is invalid: {r_comp[7]}')
 
   descriptor.nickname = r_comp[0]
   descriptor.fingerprint = _base64_to_hex(r_comp[1])
@@ -161,10 +162,10 @@ def _parse_r_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
   descriptor.dir_port = None if r_comp[7] == '0' else int(r_comp[7])
 
   try:
-    published = '%s %s' % (r_comp[3], r_comp[4])
+    published = f'{r_comp[3]} {r_comp[4]}'
     descriptor.published = stem.util.str_tools._parse_timestamp(published, datetime.timezone.utc)
   except ValueError:
-    raise ValueError("Publication time time wasn't parsable: r %s" % value)
+    raise ValueError(f"Publication time time wasn't parsable: r {value}")
 
 
 def _parse_a_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -175,17 +176,23 @@ def _parse_a_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
 
   for value in _values('a', entries):
     if ':' not in value:
-      raise ValueError("%s 'a' line must be of the form '[address]:[ports]': a %s" % (descriptor._name(), value))
+      raise ValueError(
+          f"{descriptor._name()} 'a' line must be of the form '[address]:[ports]': a {value}"
+      )
 
     address, port = value.rsplit(':', 1)
 
     if not stem.util.connection.is_valid_ipv4_address(address) and not stem.util.connection.is_valid_ipv6_address(address, allow_brackets = True):
-      raise ValueError("%s 'a' line must start with an IPv6 address: a %s" % (descriptor._name(), value))
+      raise ValueError(
+          f"{descriptor._name()} 'a' line must start with an IPv6 address: a {value}"
+      )
 
     if stem.util.connection.is_valid_port(port):
       or_addresses.append((address.lstrip('[').rstrip(']'), int(port), stem.util.connection.is_valid_ipv6_address(address, allow_brackets = True)))
     else:
-      raise ValueError("%s 'a' line had an invalid port (%s): a %s" % (descriptor._name(), port, value))
+      raise ValueError(
+          f"{descriptor._name()} 'a' line had an invalid port ({port}): a {value}"
+      )
 
   descriptor.or_addresses = or_addresses
 
@@ -200,9 +207,11 @@ def _parse_s_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
 
   for flag in flags:
     if flags.count(flag) > 1:
-      raise ValueError('%s had duplicate flags: s %s' % (descriptor._name(), value))
+      raise ValueError(f'{descriptor._name()} had duplicate flags: s {value}')
     elif flag == '':
-      raise ValueError("%s had extra whitespace on its 's' line: s %s" % (descriptor._name(), value))
+      raise ValueError(
+          f"{descriptor._name()} had extra whitespace on its 's' line: s {value}"
+      )
 
 
 def _parse_v_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -220,7 +229,9 @@ def _parse_v_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
     try:
       descriptor.version = stem.version._get_version(value[4:])
     except ValueError as exc:
-      raise ValueError('%s has a malformed tor version (%s): v %s' % (descriptor._name(), exc, value))
+      raise ValueError(
+          f'{descriptor._name()} has a malformed tor version ({exc}): v {value}'
+      )
 
 
 def _parse_w_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -231,9 +242,11 @@ def _parse_w_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
   w_comp = value.split(' ')
 
   if len(w_comp) < 1:
-    raise ValueError("%s 'w' line is blank: w %s" % (descriptor._name(), value))
+    raise ValueError(f"{descriptor._name()} 'w' line is blank: w {value}")
   elif not w_comp[0].startswith('Bandwidth='):
-    raise ValueError("%s 'w' line needs to start with a 'Bandwidth=' entry: w %s" % (descriptor._name(), value))
+    raise ValueError(
+        f"{descriptor._name()} 'w' line needs to start with a 'Bandwidth=' entry: w {value}"
+    )
 
   bandwidth = None
   measured = None
@@ -241,24 +254,26 @@ def _parse_w_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
   unrecognized_bandwidth_entries = []
 
   for w_entry in w_comp:
-    if '=' in w_entry:
-      w_key, w_value = w_entry.split('=', 1)
-    else:
-      w_key, w_value = w_entry, None
-
+    w_key, w_value = w_entry.split('=', 1) if '=' in w_entry else (w_entry, None)
     if w_key == 'Bandwidth':
       if not (w_value and w_value.isdigit()):
-        raise ValueError("%s 'Bandwidth=' entry needs to have a numeric value: w %s" % (descriptor._name(), value))
+        raise ValueError(
+            f"{descriptor._name()} 'Bandwidth=' entry needs to have a numeric value: w {value}"
+        )
 
       bandwidth = int(w_value)
     elif w_key == 'Measured':
       if not (w_value and w_value.isdigit()):
-        raise ValueError("%s 'Measured=' entry needs to have a numeric value: w %s" % (descriptor._name(), value))
+        raise ValueError(
+            f"{descriptor._name()} 'Measured=' entry needs to have a numeric value: w {value}"
+        )
 
       measured = int(w_value)
     elif w_key == 'Unmeasured':
       if w_value != '1':
-        raise ValueError("%s 'Unmeasured=' should only have the value of '1': w %s" % (descriptor._name(), value))
+        raise ValueError(
+            f"{descriptor._name()} 'Unmeasured=' should only have the value of '1': w {value}"
+        )
 
       is_unmeasured = True
     else:
@@ -283,30 +298,25 @@ def _parse_p_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
   try:
     descriptor.exit_policy = stem.exit_policy.MicroExitPolicy(value)
   except ValueError as exc:
-    raise ValueError('%s exit policy is malformed (%s): p %s' % (descriptor._name(), exc, value))
+    raise ValueError(
+        f'{descriptor._name()} exit policy is malformed ({exc}): p {value}')
 
 
 def _parse_id_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
-  # "id" "ed25519" ed25519-identity
-  #
-  # examples:
-  #
-  #   id ed25519 none
-  #   id ed25519 8RH34kO07Pp+XYwzdoATVyCibIvmbslUjRkAm7J4IA8
-
-  value = _value('id', entries)
-
-  if value:
+  if value := _value('id', entries):
     if descriptor.document and not descriptor.document.is_vote:
-      raise ValueError("%s 'id' line should only appear in votes: id %s" % (descriptor._name(), value))
+      raise ValueError(
+          f"{descriptor._name()} 'id' line should only appear in votes: id {value}"
+      )
 
     value_comp = value.split()
 
-    if len(value_comp) >= 2:
-      descriptor.identifier_type = value_comp[0]
-      descriptor.identifier = value_comp[1]
-    else:
-      raise ValueError("'id' lines should contain both the key type and digest: id %s" % value)
+    if len(value_comp) < 2:
+      raise ValueError(
+          f"'id' lines should contain both the key type and digest: id {value}"
+      )
+    descriptor.identifier_type = value_comp[0]
+    descriptor.identifier = value_comp[1]
 
 
 def _parse_m_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -320,20 +330,28 @@ def _parse_m_line(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
 
     if not (descriptor.document and descriptor.document.is_vote):
       vote_status = 'vote' if descriptor.document else '<undefined document>'
-      raise ValueError("%s 'm' line should only appear in votes (appeared in a %s): m %s" % (descriptor._name(), vote_status, value))
+      raise ValueError(
+          f"{descriptor._name()} 'm' line should only appear in votes (appeared in a {vote_status}): m {value}"
+      )
     elif len(m_comp) < 1:
-      raise ValueError("%s 'm' line needs to start with a series of methods: m %s" % (descriptor._name(), value))
+      raise ValueError(
+          f"{descriptor._name()} 'm' line needs to start with a series of methods: m {value}"
+      )
 
     try:
       methods = [int(entry) for entry in m_comp[0].split(',')]
     except ValueError:
-      raise ValueError('%s microdescriptor methods should be a series of comma separated integers: m %s' % (descriptor._name(), value))
+      raise ValueError(
+          f'{descriptor._name()} microdescriptor methods should be a series of comma separated integers: m {value}'
+      )
 
     hashes = {}
 
     for entry in m_comp[1:]:
       if '=' not in entry:
-        raise ValueError("%s can only have a series of 'algorithm=digest' mappings after the methods: m %s" % (descriptor._name(), value))
+        raise ValueError(
+            f"{descriptor._name()} can only have a series of 'algorithm=digest' mappings after the methods: m {value}"
+        )
 
       hash_name, digest = entry.split('=', 1)
       hashes[hash_name] = digest
@@ -370,14 +388,16 @@ def _base64_to_hex(identity: str, check_if_fingerprint: bool = True) -> str:
   try:
     identity_decoded = stem.util.str_tools._decode_b64(stem.util.str_tools._to_bytes(identity))
   except (TypeError, binascii.Error):
-    raise ValueError("Unable to decode identity string '%s'" % identity)
+    raise ValueError(f"Unable to decode identity string '{identity}'")
 
   fingerprint = binascii.hexlify(identity_decoded).upper()
   fingerprint = stem.util.str_tools._to_unicode(fingerprint)
 
   if check_if_fingerprint:
     if not stem.util.tor_tools.is_valid_fingerprint(fingerprint):
-      raise ValueError("Decoded '%s' to be '%s', which isn't a valid fingerprint" % (identity, fingerprint))
+      raise ValueError(
+          f"Decoded '{identity}' to be '{fingerprint}', which isn't a valid fingerprint"
+      )
 
   return fingerprint
 
@@ -469,7 +489,7 @@ class RouterStatusEntry(Descriptor):
         if keyword in entries and len(entries[keyword]) > 1:
           raise ValueError("%s can only have a single '%s' line, got %i:\n%s" % (self._name(True), keyword, len(entries[keyword]), str(self)))
 
-      if 'r' != list(entries.keys())[0]:
+      if list(entries.keys())[0] != 'r':
         raise ValueError("%s are expected to start with a 'r' line:\n%s" % (self._name(True), str(self)))
 
       self._parse(entries, validate)
@@ -517,9 +537,14 @@ class RouterStatusEntryV2(RouterStatusEntry):
 
   @classmethod
   def content(cls: Type['stem.descriptor.router_status_entry.RouterStatusEntryV2'], attr: Optional[Mapping[str, str]] = None, exclude: Sequence[str] = ()) -> bytes:
-    return _descriptor_content(attr, exclude, (
-      ('r', '%s p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE %s %s 9001 0' % (_random_nickname(), _random_date(), _random_ipv4_address())),
-    ))
+    return _descriptor_content(
+        attr,
+        exclude,
+        ((
+            'r',
+            f'{_random_nickname()} p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE {_random_date()} {_random_ipv4_address()} 9001 0',
+        ), ),
+    )
 
   def _name(self, is_plural: bool = False) -> str:
     return 'Router status entries (v2)' if is_plural else 'Router status entry (v2)'
@@ -608,10 +633,17 @@ class RouterStatusEntryV3(RouterStatusEntry):
 
   @classmethod
   def content(cls: Type['stem.descriptor.router_status_entry.RouterStatusEntryV3'], attr: Optional[Mapping[str, str]] = None, exclude: Sequence[str] = ()) -> bytes:
-    return _descriptor_content(attr, exclude, (
-      ('r', '%s p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE %s %s 9001 0' % (_random_nickname(), _random_date(), _random_ipv4_address())),
-      ('s', 'Fast Named Running Stable Valid'),
-    ))
+    return _descriptor_content(
+        attr,
+        exclude,
+        (
+            (
+                'r',
+                f'{_random_nickname()} p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE {_random_date()} {_random_ipv4_address()} 9001 0',
+            ),
+            ('s', 'Fast Named Running Stable Valid'),
+        ),
+    )
 
   def _name(self, is_plural: bool = False) -> str:
     return 'Router status entries (v3)' if is_plural else 'Router status entry (v3)'
@@ -673,11 +705,18 @@ class RouterStatusEntryMicroV3(RouterStatusEntry):
 
   @classmethod
   def content(cls: Type['stem.descriptor.router_status_entry.RouterStatusEntryMicroV3'], attr: Optional[Mapping[str, str]] = None, exclude: Sequence[str] = ()) -> bytes:
-    return _descriptor_content(attr, exclude, (
-      ('r', '%s ARIJF2zbqirB9IwsW0mQznccWww %s %s 9001 9030' % (_random_nickname(), _random_date(), _random_ipv4_address())),
-      ('m', 'aiUklwBrua82obG5AsTX+iEpkjQA2+AQHxZ7GwMfY70'),
-      ('s', 'Fast Guard HSDir Named Running Stable V2Dir Valid'),
-    ))
+    return _descriptor_content(
+        attr,
+        exclude,
+        (
+            (
+                'r',
+                f'{_random_nickname()} ARIJF2zbqirB9IwsW0mQznccWww {_random_date()} {_random_ipv4_address()} 9001 9030',
+            ),
+            ('m', 'aiUklwBrua82obG5AsTX+iEpkjQA2+AQHxZ7GwMfY70'),
+            ('s', 'Fast Guard HSDir Named Running Stable V2Dir Valid'),
+        ),
+    )
 
   def _name(self, is_plural: bool = False) -> str:
     return 'Router status entries (micro v3)' if is_plural else 'Router status entry (micro v3)'

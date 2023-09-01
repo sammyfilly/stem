@@ -182,12 +182,11 @@ class Ed25519Certificate(object):
       content = content[29:-27]
 
     try:
-      decoded = base64.b64decode(content)
-
-      if not decoded:
+      if decoded := base64.b64decode(content):
+        return Ed25519Certificate.unpack(decoded)
+      else:
         raise TypeError('empty')
 
-      return Ed25519Certificate.unpack(decoded)
     except (TypeError, binascii.Error) as exc:
       raise ValueError("Ed25519 certificate wasn't propoerly base64 encoded (%s):\n%s" % (exc, content))
 
@@ -198,7 +197,9 @@ class Ed25519Certificate(object):
     :returns: **bytes** for our encoded certificate representation
     """
 
-    raise NotImplementedError('Certificate encoding has not been implemented for %s' % type(self).__name__)
+    raise NotImplementedError(
+        f'Certificate encoding has not been implemented for {type(self).__name__}'
+    )
 
   def to_base64(self, pem: bool = False) -> str:
     """
@@ -224,7 +225,9 @@ class Ed25519Certificate(object):
       value, block_type, block_contents = entries[keyword][0]
 
       if not block_contents or block_type != 'ED25519 CERT':
-        raise ValueError("'%s' should be followed by a ED25519 CERT block, but was a %s" % (keyword, block_type))
+        raise ValueError(
+            f"'{keyword}' should be followed by a ED25519 CERT block, but was a {block_type}"
+        )
 
       setattr(descriptor, attribute, Ed25519Certificate.from_base64(block_contents))
 
@@ -278,7 +281,9 @@ class Ed25519CertificateV1(Ed25519Certificate):
       # if caller provides both signing key *and* signature then ensure they match
 
       if self.signature and self.signature != calculated_sig:
-        raise ValueError("Signature calculated from its key (%s) mismatches '%s'" % (calculated_sig, self.signature))
+        raise ValueError(
+            f"Signature calculated from its key ({calculated_sig}) mismatches '{self.signature}'"
+        )
 
       self.signature = calculated_sig
 
@@ -325,7 +330,7 @@ class Ed25519CertificateV1(Ed25519Certificate):
 
     extensions = []
 
-    for i in range(extension_count):
+    for _ in range(extension_count):
       extension, extension_data = Ed25519Extension.pop(extension_data)
       extensions.append(extension)
 
@@ -353,11 +358,11 @@ class Ed25519CertificateV1(Ed25519Certificate):
       not present
     """
 
-    for extension in self.extensions:
-      if extension.type == ExtensionType.HAS_SIGNING_KEY:
-        return extension.data
-
-    return None
+    return next(
+        (extension.data for extension in self.extensions
+         if extension.type == ExtensionType.HAS_SIGNING_KEY),
+        None,
+    )
 
   def validate(self, descriptor: Union['stem.descriptor.server_descriptor.RelayDescriptor', 'stem.descriptor.hidden_service.HiddenServiceDescriptorV3']) -> None:
     """
@@ -406,7 +411,9 @@ class Ed25519CertificateV1(Ed25519Certificate):
       signed_content = Ed25519CertificateV1._signed_content(descriptor)
       signature = stem.util.str_tools._decode_b64(descriptor.signature)
     else:
-      raise TypeError('Certificate validation only supported for server and hidden service descriptors, not %s' % type(descriptor).__name__)
+      raise TypeError(
+          f'Certificate validation only supported for server and hidden service descriptors, not {type(descriptor).__name__}'
+      )
 
     try:
       key = Ed25519PublicKey.from_public_bytes(self.key)
@@ -430,11 +437,9 @@ class Ed25519CertificateV1(Ed25519Certificate):
       prefix = SIG_PREFIX_HS_V3
       regex = b'(.+)signature '
     else:
-      raise ValueError('BUG: %s type unexpected' % type(descriptor).__name__)
+      raise ValueError(f'BUG: {type(descriptor).__name__} type unexpected')
 
-    match = re.search(regex, descriptor.get_bytes(), re.DOTALL)
-
-    if not match:
+    if match := re.search(regex, descriptor.get_bytes(), re.DOTALL):
+      return prefix + match.group(1)
+    else:
       raise ValueError('Malformed descriptor missing signature line')
-
-    return prefix + match.group(1)

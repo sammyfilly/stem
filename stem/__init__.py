@@ -511,6 +511,7 @@ Library for working with the tor process.
   ================= ===========
 """
 
+
 import traceback
 
 import stem.util
@@ -576,7 +577,7 @@ __all__ = [
 ]
 
 # Constant that we use by default for our User-Agent when downloading descriptors
-USER_AGENT = 'Stem/%s' % __version__
+USER_AGENT = f'Stem/{__version__}'
 
 # Constant to indicate an undefined argument default. Usually we'd use None for
 # this, but users will commonly provide None as the argument so need something
@@ -597,12 +598,12 @@ class Endpoint(object):
 
   def __init__(self, address: str, port: int) -> None:
     if not stem.util.connection.is_valid_ipv4_address(address) and not stem.util.connection.is_valid_ipv6_address(address):
-      raise ValueError("'%s' isn't a valid IPv4 or IPv6 address" % address)
+      raise ValueError(f"'{address}' isn't a valid IPv4 or IPv6 address")
     elif not stem.util.connection.is_valid_port(port):
-      raise ValueError("'%s' isn't a valid port" % port)
+      raise ValueError(f"'{port}' isn't a valid port")
 
     self.address = address
-    self.port = int(port)
+    self.port = port
 
   def __hash__(self) -> int:
     return stem.util._hash_attr(self, 'address', 'port', cache = True)
@@ -751,25 +752,18 @@ class DownloadFailed(OSError):
 
   def __init__(self, url: str, error: BaseException, stacktrace: Any, message: Optional[str] = None) -> None:
     if message is None:
-      # The string representation of exceptions can reside in several places.
-      # urllib.URLError use a 'reason' attribute that in turn may referrence
-      # low level structures such as socket.gaierror. Whereas most exceptions
-      # use a 'message' attribute.
-
-      reason = str(error)
-
       all_str_repr = (
         getattr(getattr(error, 'reason', None), 'strerror', None),
         getattr(error, 'reason', None),
         getattr(error, 'message', None),
       )
 
-      for str_repr in all_str_repr:
-        if str_repr and isinstance(str_repr, str):
-          reason = str_repr
-          break
-
-      message = 'Failed to download from %s (%s): %s' % (url, type(error).__name__, reason)
+      reason = next(
+          (str_repr for str_repr in all_str_repr
+           if str_repr and isinstance(str_repr, str)),
+          str(error),
+      )
+      message = f'Failed to download from {url} ({type(error).__name__}): {reason}'
 
     super(DownloadFailed, self).__init__(message)
 

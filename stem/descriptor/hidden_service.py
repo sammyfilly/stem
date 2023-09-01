@@ -185,7 +185,9 @@ class IntroductionPointV3(collections.namedtuple('IntroductionPointV3', ['link_s
     auth_key_cert = Ed25519Certificate.from_base64(auth_key_cert)
 
     if block_type != 'ED25519 CERT':
-      raise ValueError('Expected auth-key to have an ed25519 certificate, but was %s' % block_type)
+      raise ValueError(
+          f'Expected auth-key to have an ed25519 certificate, but was {block_type}'
+      )
 
     enc_key_line = _value('enc-key', entry)
     enc_key = enc_key_line[5:] if enc_key_line.startswith('ntor ') else None
@@ -194,7 +196,9 @@ class IntroductionPointV3(collections.namedtuple('IntroductionPointV3', ['link_s
     enc_key_cert = Ed25519Certificate.from_base64(enc_key_cert)
 
     if block_type != 'ED25519 CERT':
-      raise ValueError('Expected enc-key-cert to have an ed25519 certificate, but was %s' % block_type)
+      raise ValueError(
+          f'Expected enc-key-cert to have an ed25519 certificate, but was {block_type}'
+      )
 
     legacy_key = entry['legacy-key'][0][2] if 'legacy-key' in entry else None
     legacy_key_cert = entry['legacy-key-cert'][0][2] if 'legacy-key-cert' in entry else None
@@ -222,7 +226,7 @@ class IntroductionPointV3(collections.namedtuple('IntroductionPointV3', ['link_s
     """
 
     if not stem.util.connection.is_valid_port(port):
-      raise ValueError("'%s' is an invalid port" % port)
+      raise ValueError(f"'{port}' is an invalid port")
 
     link_specifiers = None  # type: Optional[List[stem.client.datatype.LinkSpecifier]]
 
@@ -231,7 +235,7 @@ class IntroductionPointV3(collections.namedtuple('IntroductionPointV3', ['link_s
     elif stem.util.connection.is_valid_ipv6_address(address):
       link_specifiers = [stem.client.datatype.LinkByIPv6(address, port)]
     else:
-      raise ValueError("'%s' is not a valid IPv4 or IPv6 address" % address)
+      raise ValueError(f"'{address}' is not a valid IPv4 or IPv6 address")
 
     return IntroductionPointV3.create_for_link_specifiers(link_specifiers, expiration = None, onion_key = None, enc_key = None, auth_key = None, signing_key = None)
 
@@ -282,16 +286,15 @@ class IntroductionPointV3(collections.namedtuple('IntroductionPointV3', ['link_s
     :returns: **str** for our descriptor representation
     """
 
-    lines = []
-
     link_count = stem.client.datatype.Size.CHAR.pack(len(self.link_specifiers))
     link_specifiers = link_count + b''.join([link.pack() for link in self.link_specifiers])
-    lines.append('introduction-point %s' % stem.util.str_tools._to_unicode(base64.b64encode(link_specifiers)))
-    lines.append('onion-key ntor %s' % self.onion_key_raw)
-    lines.append('auth-key\n' + self.auth_key_cert.to_base64(pem = True))
-
+    lines = [
+        f'introduction-point {stem.util.str_tools._to_unicode(base64.b64encode(link_specifiers))}',
+        f'onion-key ntor {self.onion_key_raw}',
+        'auth-key\n' + self.auth_key_cert.to_base64(pem=True),
+    ]
     if self.enc_key_raw:
-      lines.append('enc-key ntor %s' % self.enc_key_raw)
+      lines.append(f'enc-key ntor {self.enc_key_raw}')
 
     lines.append('enc-key-cert\n' + self.enc_key_cert.to_base64(pem = True))
 
@@ -367,33 +370,37 @@ class IntroductionPointV3(collections.namedtuple('IntroductionPointV3', ['link_s
       raise ImportError('Key parsing requires cryptography 2.6 or later')
 
     if x25519:
-      if not X25519_AVAILABLE:
+      if X25519_AVAILABLE:
+        return X25519PublicKey.from_public_bytes(base64.b64decode(value))
+
+      else:
         # without this the cryptography raises...
         # cryptography.exceptions.UnsupportedAlgorithm: X25519 is not supported by this version of OpenSSL.
 
         raise EnvironmentError('OpenSSL x25519 unsupported')
 
-      return X25519PublicKey.from_public_bytes(base64.b64decode(value))
-
-    if ed25519:
-      return Ed25519PublicKey.from_public_bytes(value)
+    return Ed25519PublicKey.from_public_bytes(value)
 
   @staticmethod
   def _parse_link_specifiers(content: bytes) -> List['stem.client.datatype.LinkSpecifier']:
     try:
       content = base64.b64decode(content)
     except Exception as exc:
-      raise ValueError('Unable to base64 decode introduction point (%s): %s' % (exc, stem.util.str_tools._to_unicode(content)))
+      raise ValueError(
+          f'Unable to base64 decode introduction point ({exc}): {stem.util.str_tools._to_unicode(content)}'
+      )
 
     link_specifiers = []
     count, content = stem.client.datatype.Size.CHAR.pop(content)
 
-    for i in range(count):
+    for _ in range(count):
       link_specifier, content = stem.client.datatype.LinkSpecifier.pop(content)
       link_specifiers.append(link_specifier)
 
     if content:
-      raise ValueError('Introduction point had excessive data (%s)' % stem.util.str_tools._to_unicode(content))
+      raise ValueError(
+          f'Introduction point had excessive data ({stem.util.str_tools._to_unicode(content)})'
+      )
 
     return link_specifiers
 
@@ -495,7 +502,9 @@ def _decrypt_layer(encrypted_block: str, constant: bytes, revision_counter: int,
   cipher, mac_for = _layer_cipher(constant, revision_counter, subcredential, blinded_key, salt)
 
   if expected_mac != mac_for(ciphertext):
-    raise ValueError('Malformed mac (expected %s, but was %s)' % (stem.util.str_tools._to_unicode(expected_mac), stem.util.str_tools._to_unicode(mac_for(ciphertext))))
+    raise ValueError(
+        f'Malformed mac (expected {stem.util.str_tools._to_unicode(expected_mac)}, but was {stem.util.str_tools._to_unicode(mac_for(ciphertext))})'
+    )
 
   decryptor = cipher.decryptor()
   plaintext = decryptor.update(ciphertext) + decryptor.finalize()
@@ -540,11 +549,13 @@ def _parse_protocol_versions_line(descriptor: 'stem.descriptor.Descriptor', entr
   try:
     versions = [int(entry) for entry in value.split(',')]
   except ValueError:
-    raise ValueError('protocol-versions line has non-numeric versoins: protocol-versions %s' % value)
+    raise ValueError(
+        f'protocol-versions line has non-numeric versoins: protocol-versions {value}'
+    )
 
   for v in versions:
     if v <= 0:
-      raise ValueError('protocol-versions must be positive integers: %s' % value)
+      raise ValueError(f'protocol-versions must be positive integers: {value}')
 
   descriptor.protocol_versions = versions
 
@@ -553,7 +564,9 @@ def _parse_introduction_points_line(descriptor: 'stem.descriptor.Descriptor', en
   _, block_type, block_contents = entries['introduction-points'][0]
 
   if not block_contents or block_type != 'MESSAGE':
-    raise ValueError("'introduction-points' should be followed by a MESSAGE block, but was a %s" % block_type)
+    raise ValueError(
+        f"'introduction-points' should be followed by a MESSAGE block, but was a {block_type}"
+    )
 
   descriptor.introduction_points_encoded = block_contents
 
@@ -572,7 +585,9 @@ def _parse_v3_outer_clients(descriptor: 'stem.descriptor.Descriptor', entries: E
     value_comp = value.split()
 
     if len(value_comp) < 3:
-      raise ValueError('auth-client should have a client-id, iv, and cookie: auth-client %s' % value)
+      raise ValueError(
+          f'auth-client should have a client-id, iv, and cookie: auth-client {value}'
+      )
 
     clients[value_comp[0]] = AuthorizedClient(value_comp[0], value_comp[1], value_comp[2])
 
@@ -584,7 +599,8 @@ def _parse_v3_inner_formats(descriptor: 'stem.descriptor.Descriptor', entries: E
 
   for entry in value.split(' '):
     if not entry.isdigit():
-      raise ValueError("create2-formats should only contain integers, but was '%s'" % value)
+      raise ValueError(
+          f"create2-formats should only contain integers, but was '{value}'")
 
     formats.append(int(entry))
 
@@ -715,13 +731,15 @@ class HiddenServiceDescriptorV2(HiddenServiceDescriptor):
     if validate:
       for keyword in REQUIRED_V2_FIELDS:
         if keyword not in entries:
-          raise ValueError("Hidden service descriptor must have a '%s' entry" % keyword)
-        elif keyword in entries and len(entries[keyword]) > 1:
-          raise ValueError("The '%s' entry can only appear once in a hidden service descriptor" % keyword)
+          raise ValueError(f"Hidden service descriptor must have a '{keyword}' entry")
+        elif len(entries[keyword]) > 1:
+          raise ValueError(
+              f"The '{keyword}' entry can only appear once in a hidden service descriptor"
+          )
 
-      if 'rendezvous-service-descriptor' != list(entries.keys())[0]:
+      if list(entries.keys())[0] != 'rendezvous-service-descriptor':
         raise ValueError("Hidden service descriptor must start with a 'rendezvous-service-descriptor' entry")
-      elif 'signature' != list(entries.keys())[-1]:
+      elif list(entries.keys())[-1] != 'signature':
         raise ValueError("Hidden service descriptor must end with a 'signature' entry")
 
       self._parse(entries, validate)
@@ -733,7 +751,9 @@ class HiddenServiceDescriptorV2(HiddenServiceDescriptor):
           content_digest = hashlib.sha1(digest_content).hexdigest().upper()
 
           if signed_digest != content_digest:
-            raise ValueError('Decrypted digest does not match local digest (calculated: %s, local: %s)' % (signed_digest, content_digest))
+            raise ValueError(
+                f'Decrypted digest does not match local digest (calculated: {signed_digest}, local: {content_digest})'
+            )
         except ImportError:
           pass  # cryptography module unavailable
     else:
@@ -761,16 +781,19 @@ class HiddenServiceDescriptorV2(HiddenServiceDescriptor):
       try:
         authentication_cookie = stem.util.str_tools._decode_b64(authentication_cookie)
       except TypeError as exc:
-        raise DecryptionFailure('authentication_cookie must be a base64 encoded string (%s)' % exc)
+        raise DecryptionFailure(
+            f'authentication_cookie must be a base64 encoded string ({exc})')
 
-      authentication_type = int(binascii.hexlify(content[0:1]), 16)
+      authentication_type = int(binascii.hexlify(content[:1]), 16)
 
       if authentication_type == BASIC_AUTH:
         content = HiddenServiceDescriptorV2._decrypt_basic_auth(content, authentication_cookie)
       elif authentication_type == STEALTH_AUTH:
         content = HiddenServiceDescriptorV2._decrypt_stealth_auth(content, authentication_cookie)
       else:
-        raise DecryptionFailure("Unrecognized authentication type '%s', currently we only support basic auth (%s) and stealth auth (%s)" % (authentication_type, BASIC_AUTH, STEALTH_AUTH))
+        raise DecryptionFailure(
+            f"Unrecognized authentication type '{authentication_type}', currently we only support basic auth ({BASIC_AUTH}) and stealth auth ({STEALTH_AUTH})"
+        )
 
       if not content.startswith(b'introduction-point '):
         raise DecryptionFailure('Unable to decrypt the introduction-points, maybe this is the wrong key?')
@@ -790,7 +813,9 @@ class HiddenServiceDescriptorV2(HiddenServiceDescriptor):
     try:
       client_blocks = int(binascii.hexlify(content[1:2]), 16)
     except ValueError:
-      raise DecryptionFailure("When using basic auth the content should start with a number of blocks but wasn't a hex digit: %s" % binascii.hexlify(content[1:2]).decode('utf-8'))
+      raise DecryptionFailure(
+          f"When using basic auth the content should start with a number of blocks but wasn't a hex digit: {binascii.hexlify(content[1:2]).decode('utf-8')}"
+      )
 
     # parse the client id and encrypted session keys
 
@@ -869,12 +894,12 @@ class HiddenServiceDescriptorV2(HiddenServiceDescriptor):
           attr['identifier'] = value
         elif keyword == 'ip-address':
           if not stem.util.connection.is_valid_ipv4_address(value):
-            raise ValueError("'%s' is an invalid IPv4 address" % value)
+            raise ValueError(f"'{value}' is an invalid IPv4 address")
 
           attr['address'] = value
         elif keyword == 'onion-port':
           if not stem.util.connection.is_valid_port(value):
-            raise ValueError("'%s' is an invalid port" % value)
+            raise ValueError(f"'{value}' is an invalid port")
 
           attr['port'] = int(value)
         elif keyword == 'onion-key':
@@ -886,7 +911,9 @@ class HiddenServiceDescriptorV2(HiddenServiceDescriptor):
 
           for auth_value, _, _ in values:
             if ' ' not in auth_value:
-              raise ValueError("We expected 'intro-authentication [auth_type] [auth_data]', but had '%s'" % auth_value)
+              raise ValueError(
+                  f"We expected 'intro-authentication [auth_type] [auth_data]', but had '{auth_value}'"
+              )
 
             auth_type, auth_data = auth_value.split(' ')[:2]
             auth_entries.append((auth_type, auth_data))
@@ -1041,13 +1068,15 @@ class HiddenServiceDescriptorV3(HiddenServiceDescriptor):
     if validate:
       for keyword in REQUIRED_V3_FIELDS:
         if keyword not in entries:
-          raise ValueError("Hidden service descriptor must have a '%s' entry" % keyword)
-        elif keyword in entries and len(entries[keyword]) > 1:
-          raise ValueError("The '%s' entry can only appear once in a hidden service descriptor" % keyword)
+          raise ValueError(f"Hidden service descriptor must have a '{keyword}' entry")
+        elif len(entries[keyword]) > 1:
+          raise ValueError(
+              f"The '{keyword}' entry can only appear once in a hidden service descriptor"
+          )
 
-      if 'hs-descriptor' != list(entries.keys())[0]:
+      if list(entries.keys())[0] != 'hs-descriptor':
         raise ValueError("Hidden service descriptor must start with a 'hs-descriptor' entry")
-      elif 'signature' != list(entries.keys())[-1]:
+      elif list(entries.keys())[-1] != 'signature':
         raise ValueError("Hidden service descriptor must end with a 'signature' entry")
 
       self._parse(entries, validate)
@@ -1126,11 +1155,10 @@ class HiddenServiceDescriptorV3(HiddenServiceDescriptor):
     :raises: **ValueError** if address malformed or checksum is invalid
     """
 
-    if onion_address.endswith('.onion'):
-      onion_address = onion_address[:-6]
-
+    onion_address = onion_address.removesuffix('.onion')
     if not stem.util.tor_tools.HS_V3_ADDRESS_PATTERN.match(onion_address):
-      raise ValueError("'%s.onion' isn't a valid hidden service v3 address" % onion_address)
+      raise ValueError(
+          f"'{onion_address}.onion' isn't a valid hidden service v3 address")
 
     # onion_address = base32(PUBKEY | CHECKSUM | VERSION) + '.onion'
     # CHECKSUM = H('.onion checksum' | PUBKEY | VERSION)[:2]
@@ -1147,7 +1175,9 @@ class HiddenServiceDescriptorV3(HiddenServiceDescriptor):
       checksum_str = stem.util.str_tools._to_unicode(binascii.hexlify(checksum))
       expected_checksum_str = stem.util.str_tools._to_unicode(binascii.hexlify(expected_checksum))
 
-      raise ValueError('Bad checksum (expected %s but was %s)' % (expected_checksum_str, checksum_str))
+      raise ValueError(
+          f'Bad checksum (expected {expected_checksum_str} but was {checksum_str})'
+      )
 
     return pubkey
 
@@ -1226,20 +1256,27 @@ class OuterLayer(Descriptor):
     if not authorized_clients:
       authorized_clients = []
 
-      if attr and 'auth-client' in attr:
-        pass  # caller is providing raw auth-client lines through the attr
-      else:
-        for i in range(16):
-          authorized_clients.append(AuthorizedClient())
-
-    return _descriptor_content(attr, exclude, [
-      ('desc-auth-type', 'x25519'),
-      ('desc-auth-ephemeral-key', stem.util.str_tools._to_unicode(base64.b64encode(stem.util._pubkey_bytes(X25519PrivateKey.generate())))),
-    ] + [
-      ('auth-client', '%s %s %s' % (c.id, c.iv, c.cookie)) for c in authorized_clients
-    ], (
-      ('encrypted', stem.util.str_tools._to_unicode(b'\n' + inner_layer._encrypt(revision_counter, subcredential, blinded_key))),
-    ))
+      if not attr or 'auth-client' not in attr:
+        authorized_clients.extend(AuthorizedClient() for _ in range(16))
+    return _descriptor_content(
+        attr,
+        exclude,
+        ([
+            ('desc-auth-type', 'x25519'),
+            (
+                'desc-auth-ephemeral-key',
+                stem.util.str_tools._to_unicode(
+                    base64.b64encode(
+                        stem.util._pubkey_bytes(X25519PrivateKey.generate()))),
+            ),
+        ] + [('auth-client', f'{c.id} {c.iv} {c.cookie}')
+             for c in authorized_clients]),
+        ((
+            'encrypted',
+            stem.util.str_tools._to_unicode(b'\n' + inner_layer._encrypt(
+                revision_counter, subcredential, blinded_key)),
+        ), ),
+    )
 
   @classmethod
   def create(cls: Type['stem.descriptor.hidden_service.OuterLayer'], attr: Optional[Mapping[str, str]] = None, exclude: Sequence[str] = (), validate: bool = True, sign: bool = False, inner_layer: Optional['stem.descriptor.hidden_service.InnerLayer'] = None, revision_counter: int = None, authorized_clients: Optional[Sequence['stem.descriptor.hidden_service.AuthorizedClient']] = None, subcredential: bytes = None, blinded_key: bytes = None) -> 'stem.descriptor.hidden_service.OuterLayer':

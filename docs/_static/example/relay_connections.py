@@ -11,7 +11,7 @@ from stem.util.connection import get_connections, port_usage, is_valid_ipv4_addr
 
 HEADER_LINE = ' {version}   uptime: {uptime}   flags: {flags}\n'
 
-DIV = '+%s+%s+%s+' % ('-' * 30, '-' * 6, '-' * 6)
+DIV = f"+{'-' * 30}+{'-' * 6}+{'-' * 6}+"
 COLUMN = '| %-28s | %4s | %4s |'
 
 INBOUND_ORPORT = 'Inbound to our ORPort'
@@ -116,7 +116,7 @@ def main(args = None):
       total_ipv4, total_ipv6 = total_ipv4 + ipv4_count, total_ipv6 + ipv6_count
 
       usage = port_usage(port)
-      label = '%s (%s)' % (port, usage) if usage else port
+      label = f'{port} ({usage})' if usage else port
 
       print(COLUMN % (label, ipv4_count, ipv6_count))
 

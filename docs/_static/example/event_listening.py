@@ -78,10 +78,10 @@ def _render_graph(window, bandwidth_rates):
 
   # show the latest values at the top
 
-  label = 'Downloaded (%s/s):' % str_tools.size_label(download_rates[0], 1)
+  label = f'Downloaded ({str_tools.size_label(download_rates[0], 1)}/s):'
   window.addstr(0, 1, label, DOWNLOAD_COLOR, curses.A_BOLD)
 
-  label = 'Uploaded (%s/s):' % str_tools.size_label(upload_rates[0], 1)
+  label = f'Uploaded ({str_tools.size_label(upload_rates[0], 1)}/s):'
   window.addstr(0, GRAPH_WIDTH + 7, label, UPLOAD_COLOR, curses.A_BOLD)
 
   # draw the graph bounds in KB
@@ -143,13 +143,10 @@ class Window(object):
 
     try:
       if curses.has_colors():
-        color_pair = 1
-
-        for name, foreground in COLOR_LIST.items():
-          background = -1  # allows for default (possibly transparent) background
+        background = -1  # allows for default (possibly transparent) background
+        for color_pair, (name, foreground) in enumerate(COLOR_LIST.items(), start=1):
           curses.init_pair(color_pair, foreground, background)
           self._colors[name] = curses.color_pair(color_pair)
-          color_pair += 1
     except curses.error:
       pass
 
@@ -160,7 +157,7 @@ class Window(object):
     if color is not None:
       if color not in self._colors:
         recognized_colors = ', '.join(self._colors.keys())
-        raise ValueError("The '%s' color isn't recognized: %s" % (color, recognized_colors))
+        raise ValueError(f"The '{color}' color isn't recognized: {recognized_colors}")
 
       attr |= self._colors[color]
 

@@ -36,12 +36,22 @@ class TestExtraInfoDescriptor(unittest.TestCase):
           test.register_new_capability('Extra-info Line', line)
 
         if desc.dir_v2_responses_unknown:
-          raise AssertionError('Unrecognized statuses on dirreq-v2-resp lines: %s' % desc.dir_v2_responses_unknown)
+          raise AssertionError(
+              f'Unrecognized statuses on dirreq-v2-resp lines: {desc.dir_v2_responses_unknown}'
+          )
         elif desc.dir_v3_responses_unknown:
-          raise AssertionError('Unrecognized statuses on dirreq-v3-resp lines: %s' % desc.dir_v3_responses_unknown)
+          raise AssertionError(
+              f'Unrecognized statuses on dirreq-v3-resp lines: {desc.dir_v3_responses_unknown}'
+          )
         elif desc.dir_v2_direct_dl_unknown:
-          raise AssertionError('Unrecognized stats on dirreq-v2-direct-dl lines: %s' % desc.dir_v2_direct_dl_unknown)
+          raise AssertionError(
+              f'Unrecognized stats on dirreq-v2-direct-dl lines: {desc.dir_v2_direct_dl_unknown}'
+          )
         elif desc.dir_v3_direct_dl_unknown:
-          raise AssertionError('Unrecognized stats on dirreq-v3-direct-dl lines: %s' % desc.dir_v2_direct_dl_unknown)
+          raise AssertionError(
+              f'Unrecognized stats on dirreq-v3-direct-dl lines: {desc.dir_v2_direct_dl_unknown}'
+          )
         elif desc.dir_v2_tunneled_dl_unknown:
-          raise AssertionError('Unrecognized stats on dirreq-v2-tunneled-dl lines: %s' % desc.dir_v2_tunneled_dl_unknown)
+          raise AssertionError(
+              f'Unrecognized stats on dirreq-v2-tunneled-dl lines: {desc.dir_v2_tunneled_dl_unknown}'
+          )

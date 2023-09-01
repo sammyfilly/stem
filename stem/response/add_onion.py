@@ -28,10 +28,12 @@ class AddOnionResponse(stem.response.ControlMessage):
     self.client_auth = {}
 
     if not self.is_ok():
-      raise stem.ProtocolError("ADD_ONION response didn't have an OK status: %s" % self)
+      raise stem.ProtocolError(
+          f"ADD_ONION response didn't have an OK status: {self}")
 
     if not str(self).startswith('ServiceID='):
-      raise stem.ProtocolError('ADD_ONION response should start with the service id: %s' % self)
+      raise stem.ProtocolError(
+          f'ADD_ONION response should start with the service id: {self}')
 
     for line in list(self):
       if '=' in line:
@@ -41,12 +43,16 @@ class AddOnionResponse(stem.response.ControlMessage):
           self.service_id = value
         elif key == 'PrivateKey':
           if ':' not in value:
-            raise stem.ProtocolError("ADD_ONION PrivateKey lines should be of the form 'PrivateKey=[type]:[key]: %s" % self)
+            raise stem.ProtocolError(
+                f"ADD_ONION PrivateKey lines should be of the form 'PrivateKey=[type]:[key]: {self}"
+            )
 
           self.private_key_type, self.private_key = value.split(':', 1)
         elif key == 'ClientAuth':
           if ':' not in value:
-            raise stem.ProtocolError("ADD_ONION ClientAuth lines should be of the form 'ClientAuth=[username]:[credential]: %s" % self)
+            raise stem.ProtocolError(
+                f"ADD_ONION ClientAuth lines should be of the form 'ClientAuth=[username]:[credential]: {self}"
+            )
 
           username, credential = value.split(':', 1)
           self.client_auth[username] = credential

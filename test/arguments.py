@@ -61,9 +61,9 @@ class Arguments(NamedTuple):
 
       if unrecognized_args:
         error_msg = "aren't recognized arguments" if len(unrecognized_args) > 1 else "isn't a recognized argument"
-        raise getopt.GetoptError("'%s' %s" % ("', '".join(unrecognized_args), error_msg))
+        raise getopt.GetoptError(f"""'{"', '".join(unrecognized_args)}' {error_msg}""")
     except Exception as exc:
-      raise ValueError('%s (for usage provide --help)' % exc)
+      raise ValueError(f'{exc} (for usage provide --help)')
 
     for opt, arg in recognized_args:
       if opt in ('-a', '--all'):
@@ -86,7 +86,7 @@ class Arguments(NamedTuple):
 
         for target in integ_targets:
           if target not in test.Target:
-            raise ValueError('Invalid integration target: %s' % target)
+            raise ValueError(f'Invalid integration target: {target}')
           elif target in all_run_targets:
             run_targets.append(target)
           else:

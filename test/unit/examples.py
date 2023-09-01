@@ -267,7 +267,7 @@ hello                         hellena
 
 
 def _make_circ_event(circ_id, hop1, hop2, hop3):
-  path = '$%s=%s,$%s=%s,$%s=%s' % (hop1[0], hop1[1], hop2[0], hop2[1], hop3[0], hop3[1])
+  path = f'${hop1[0]}={hop1[1]},${hop2[0]}={hop2[1]},${hop3[0]}={hop3[1]}'
   content = '650 CIRC %i BUILT %s PURPOSE=GENERAL' % (circ_id, path)
   return ControlMessage.from_str(content, 'EVENT', normalize = True)
 
@@ -296,17 +296,28 @@ class TestExamples(unittest.TestCase):
     Ensure we have tests for all our examples.
     """
 
-    all_examples = set([os.path.basename(path)[:-3] for path in stem.util.system.files_with_suffix(EXAMPLE_DIR, '.py')])
-    tested_examples = set([method[5:] for method in dir(self) if method.startswith('test_') and not method.startswith('test_everything_')])
+    all_examples = {
+        os.path.basename(path)[:-3]
+        for path in stem.util.system.files_with_suffix(EXAMPLE_DIR, '.py')
+    }
+    tested_examples = {
+        method[5:]
+        for method in dir(self) if method.startswith('test_')
+        and not method.startswith('test_everything_')
+    }
 
     extra = sorted(tested_examples.difference(all_examples))
     missing = sorted(all_examples.difference(tested_examples).difference(UNTESTED))
 
     if extra:
-      self.fail("Changed our examples directory? We test the following which are not present: %s" % ', '.join(extra))
+      self.fail(
+          f"Changed our examples directory? We test the following which are not present: {', '.join(extra)}"
+      )
 
     if missing:
-      self.fail("Changed our examples directory? The following are untested: %s" % ', '.join(missing))
+      self.fail(
+          f"Changed our examples directory? The following are untested: {', '.join(missing)}"
+      )
 
   def test_everything_is_referenced(self):
     """
@@ -314,7 +325,10 @@ class TestExamples(unittest.TestCase):
     dead code.
     """
 
-    all_examples = set([os.path.basename(path)[:-3] for path in stem.util.system.files_with_suffix(EXAMPLE_DIR, '.py')])
+    all_examples = {
+        os.path.basename(path)[:-3]
+        for path in stem.util.system.files_with_suffix(EXAMPLE_DIR, '.py')
+    }
 
     include_regex = re.compile('.. literalinclude:: /_static/example/(\\S*).py')
     referenced_examples = set()
@@ -333,10 +347,14 @@ class TestExamples(unittest.TestCase):
     missing.remove('benchmark_stem')  # expanded copy of benchmark_server_descriptor_stem.py
 
     if extra:
-      self.fail("Changed our documentation? We reference the following examples which are not present: %s" % ', '.join(extra))
+      self.fail(
+          f"Changed our documentation? We reference the following examples which are not present: {', '.join(extra)}"
+      )
 
     if missing:
-      self.fail("Changed our documntation? The following examples are unreferenced: %s" % ', '.join(missing))
+      self.fail(
+          f"Changed our documntation? The following examples are unreferenced: {', '.join(missing)}"
+      )
 
   @patch('stem.descriptor.remote.get_bandwidth_file')
   @patch('sys.stdout', new_callable = io.StringIO)
@@ -422,7 +440,8 @@ class TestExamples(unittest.TestCase):
     encoded_digest = base64.b64encode(binascii.unhexlify(server_desc.digest())).rstrip(b'=')
 
     consensus_desc = RouterStatusEntryV3.create({
-      'r': 'caerSidi p1aag7VwarGxqctS7/fS0y5FU+s %s 2012-08-06 11:19:31 71.35.150.29 9001 0' % encoded_digest.decode('utf-8'),
+        'r':
+        f"caerSidi p1aag7VwarGxqctS7/fS0y5FU+s {encoded_digest.decode('utf-8')} 2012-08-06 11:19:31 71.35.150.29 9001 0"
     })
 
     bad_consensus_desc = RouterStatusEntryV3.create({

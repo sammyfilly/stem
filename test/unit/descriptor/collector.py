@@ -123,7 +123,12 @@ class TestCollector(unittest.TestCase):
 
       with patch('urllib.request.urlopen', Mock(return_value = io.BytesIO(b'not compressed'))):
         collector = CollecTor()
-        self.assertRaisesRegexp(OSError, 'Failed to decompress as %s' % compression, collector.index, compression)
+        self.assertRaisesRegexp(
+            OSError,
+            f'Failed to decompress as {compression}',
+            collector.index,
+            compression,
+        )
 
   @patch('stem.descriptor.collector.CollecTor.index', Mock(return_value = EXAMPLE_INDEX))
   def test_files(self):

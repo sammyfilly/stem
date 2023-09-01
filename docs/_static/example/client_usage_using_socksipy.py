@@ -22,4 +22,4 @@ def query(url):
   try:
     return urllib.urlopen(url).read()
   except:
-    return 'Unable to reach %s' % url
+    return f'Unable to reach {url}'

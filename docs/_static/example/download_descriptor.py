@@ -51,28 +51,30 @@ def parse(argv):
     recognized_args, unrecognized_args = getopt.getopt(argv, 't:f:h', ['type=', 'fingerprint=', 'orport=', 'dirport=', 'help'])
 
     if unrecognized_args:
-      raise getopt.GetoptError("'%s' aren't recognized arguments" % "', '".join(unrecognized_args))
+      raise getopt.GetoptError(
+          f"""'{"', '".join(unrecognized_args)}' aren't recognized arguments"""
+      )
   except Exception as exc:
-    raise ValueError('%s (for usage provide --help)' % exc)
+    raise ValueError(f'{exc} (for usage provide --help)')
 
   for opt, arg in recognized_args:
     if opt in ('-t', '--type'):
       args['descriptor_type'] = arg
     elif opt in ('-f', '--fingerprint'):
       if not stem.util.tor_tools.is_valid_fingerprint(arg):
-        raise ValueError("'%s' isn't a relay fingerprint" % arg)
+        raise ValueError(f"'{arg}' isn't a relay fingerprint")
 
       args['fingerprint'] = arg
     elif opt in ('--orport', '--dirport'):
       if ':' not in arg:
-        raise ValueError("'%s' should be of the form 'address:port'" % arg)
+        raise ValueError(f"'{arg}' should be of the form 'address:port'")
 
       address, port = arg.rsplit(':', 1)
 
       if not stem.util.connection.is_valid_ipv4_address(address):
-        raise ValueError("'%s' isn't a valid IPv4 address" % address)
+        raise ValueError(f"'{address}' isn't a valid IPv4 address")
       elif not stem.util.connection.is_valid_port(port):
-        raise ValueError("'%s' isn't a valid port number" % port)
+        raise ValueError(f"'{port}' isn't a valid port number")
 
       endpoint_class = stem.ORPort if opt == '--orport' else stem.DirPort
       args['download_from'] = endpoint_class(address, port)
@@ -116,10 +118,12 @@ def main(argv):
         break
 
     if not desc:
-      print('Unable to find a descriptor for %s in the consensus' % args.fingerprint)
+      print(f'Unable to find a descriptor for {args.fingerprint} in the consensus')
       sys.exit(1)
   else:
-    print("'%s' is not a recognized descriptor type, options are: %s" % (args.descriptor_type, ', '.join(VALID_TYPES)))
+    print(
+        f"'{args.descriptor_type}' is not a recognized descriptor type, options are: {', '.join(VALID_TYPES)}"
+    )
     sys.exit(1)
 
   if desc:

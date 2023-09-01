@@ -137,7 +137,7 @@ class TestRouterStatusEntry(unittest.TestCase):
 
     entry = RouterStatusEntryV3.create()
 
-    expected_flags = set([Flag.FAST, Flag.NAMED, Flag.RUNNING, Flag.STABLE, Flag.VALID])
+    expected_flags = {Flag.FAST, Flag.NAMED, Flag.RUNNING, Flag.STABLE, Flag.VALID}
     self.assertEqual(None, entry.document)
     self.assertTrue(entry.nickname.startswith('Unnamed'))
     self.assertEqual('A106452D87BD7B803B6CE916291ED368DC5BD091', entry.digest)
@@ -163,7 +163,16 @@ class TestRouterStatusEntry(unittest.TestCase):
 
     entry = RouterStatusEntryMicroV3.create()
 
-    expected_flags = set([Flag.FAST, Flag.GUARD, Flag.HSDIR, Flag.NAMED, Flag.RUNNING, Flag.STABLE, Flag.V2DIR, Flag.VALID])
+    expected_flags = {
+        Flag.FAST,
+        Flag.GUARD,
+        Flag.HSDIR,
+        Flag.NAMED,
+        Flag.RUNNING,
+        Flag.STABLE,
+        Flag.V2DIR,
+        Flag.VALID,
+    }
     self.assertEqual(None, entry.document)
     self.assertTrue(entry.nickname.startswith('Unnamed'))
     self.assertEqual(9001, entry.or_port)
@@ -192,7 +201,7 @@ class TestRouterStatusEntry(unittest.TestCase):
     self.assertEqual('73.15.150.172', entry.address)
     self.assertEqual(9001, entry.or_port)
     self.assertEqual(None, entry.dir_port)
-    self.assertEqual(set([Flag.RUNNING, Flag.STABLE, Flag.VALID]), set(entry.flags))
+    self.assertEqual({Flag.RUNNING, Flag.STABLE, Flag.VALID}, set(entry.flags))
     self.assertEqual('Tor 0.2.6.10', entry.version_line)
     self.assertEqual(Version('0.2.6.10'), entry.version)
     self.assertEqual(102, entry.bandwidth)
@@ -226,7 +235,8 @@ class TestRouterStatusEntry(unittest.TestCase):
     self.assertEqual('95.215.44.189', entry.address)
     self.assertEqual(8080, entry.or_port)
     self.assertEqual(None, entry.dir_port)
-    self.assertEqual(set([Flag.FAST, Flag.RUNNING, Flag.STABLE, Flag.VALID]), set(entry.flags))
+    self.assertEqual({Flag.FAST, Flag.RUNNING, Flag.STABLE, Flag.VALID},
+                     set(entry.flags))
     self.assertEqual('Tor 0.2.7.2-alpha-dev', entry.version_line)
     self.assertEqual(Version('0.2.7.2-alpha-dev'), entry.version)
     self.assertEqual(608, entry.bandwidth)
@@ -265,7 +275,18 @@ class TestRouterStatusEntry(unittest.TestCase):
     self.assertEqual('77.123.42.148', entry.address)
     self.assertEqual(444, entry.or_port)
     self.assertEqual(800, entry.dir_port)
-    self.assertEqual(set([Flag.FAST, Flag.GUARD, Flag.HSDIR, Flag.RUNNING, Flag.STABLE, Flag.V2DIR, Flag.VALID]), set(entry.flags))
+    self.assertEqual(
+        {
+            Flag.FAST,
+            Flag.GUARD,
+            Flag.HSDIR,
+            Flag.RUNNING,
+            Flag.STABLE,
+            Flag.V2DIR,
+            Flag.VALID,
+        },
+        set(entry.flags),
+    )
     self.assertEqual('Tor 0.2.5.16', entry.version_line)
     self.assertEqual(Version('0.2.5.16'), entry.version)
     self.assertEqual([('2001:470:71:9b9:f66d:4ff:fee7:954c', 444, True)], entry.or_addresses)
@@ -360,7 +381,7 @@ class TestRouterStatusEntry(unittest.TestCase):
     )
 
     for value in test_values:
-      r_line = '%s p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE 2012-08-06 11:19:31 71.35.150.29 9001 0' % value
+      r_line = f'{value} p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE 2012-08-06 11:19:31 71.35.150.29 9001 0'
 
       # TODO: Initial whitespace is consumed as part of the keyword/value
       # divider. This is a bug in the case of V3 router status entries, but
@@ -389,7 +410,7 @@ class TestRouterStatusEntry(unittest.TestCase):
     )
 
     for value in test_values:
-      r_line = 'caerSidi %s oQZFLYe9e4A7bOkWKR7TaNxb0JE 2012-08-06 11:19:31 71.35.150.29 9001 0' % value
+      r_line = f'caerSidi {value} oQZFLYe9e4A7bOkWKR7TaNxb0JE 2012-08-06 11:19:31 71.35.150.29 9001 0'
       expect_invalid_attr(self, {'r': r_line}, 'fingerprint')
 
   def test_malformed_published_date(self):
@@ -414,7 +435,7 @@ class TestRouterStatusEntry(unittest.TestCase):
     )
 
     for value in test_values:
-      r_line = 'caerSidi p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE %s 71.35.150.29 9001 0' % value
+      r_line = f'caerSidi p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE {value} 71.35.150.29 9001 0'
       expect_invalid_attr(self, {'r': r_line}, 'published')
 
   def test_malformed_address(self):
@@ -431,7 +452,7 @@ class TestRouterStatusEntry(unittest.TestCase):
     )
 
     for value in test_values:
-      r_line = 'caerSidi p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE 2012-08-06 11:19:31 %s 9001 0' % value
+      r_line = f'caerSidi p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE 2012-08-06 11:19:31 {value} 9001 0'
       expect_invalid_attr(self, {'r': r_line}, 'address')
 
   def test_malformed_port(self):
@@ -455,7 +476,7 @@ class TestRouterStatusEntry(unittest.TestCase):
           r_line = 'caerSidi p1aag7VwarGxqctS7/fS0y5FU+s oQZFLYe9e4A7bOkWKR7TaNxb0JE 2012-08-06 11:19:31 71.35.150.29 9001 0'
 
           if include_or_port:
-            r_line = r_line.replace(' 9001 ', ' %s ' % value)
+            r_line = r_line.replace(' 9001 ', f' {value} ')
 
           if include_dir_port:
             r_line = r_line[:-1] + value

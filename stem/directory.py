@@ -91,9 +91,7 @@ def _match_with(lines: Sequence[str], regexes: Sequence[Pattern], required: Opti
 
   for line in lines:
     for matcher in regexes:
-      m = matcher.search(str_tools._to_unicode(line))
-
-      if m:
+      if m := matcher.search(str_tools._to_unicode(line)):
         match_groups = m.groups()
         matches[matcher] = match_groups if len(match_groups) > 1 else match_groups[0]
 
@@ -106,11 +104,8 @@ def _match_with(lines: Sequence[str], regexes: Sequence[Pattern], required: Opti
 
 
 def _directory_entries(lines: List[str], pop_section_func: Callable[[List[str]], List[str]], regexes: Sequence[Pattern], required: Optional[Sequence[Pattern]] = None) -> Iterator[Dict[Pattern, Union[str, List[str]]]]:
-  next_section = pop_section_func(lines)
-
-  while next_section:
+  while next_section := pop_section_func(lines):
     yield _match_with(next_section, regexes, required)
-    next_section = pop_section_func(lines)
 
 
 class Directory(object):
@@ -139,26 +134,27 @@ class Directory(object):
   """
 
   def __init__(self, address: str, or_port: Union[int, str], dir_port: Optional[Union[int, str]], fingerprint: str, nickname: str, orport_v6: Tuple[str, int]) -> None:
-    identifier = '%s (%s)' % (fingerprint, nickname) if nickname else fingerprint
+    identifier = f'{fingerprint} ({nickname})' if nickname else fingerprint
 
     if not connection.is_valid_ipv4_address(address):
-      raise ValueError('%s has an invalid IPv4 address: %s' % (identifier, address))
+      raise ValueError(f'{identifier} has an invalid IPv4 address: {address}')
     elif not connection.is_valid_port(or_port):
-      raise ValueError('%s has an invalid ORPort: %s' % (identifier, or_port))
+      raise ValueError(f'{identifier} has an invalid ORPort: {or_port}')
     elif dir_port and not connection.is_valid_port(dir_port):
-      raise ValueError('%s has an invalid DirPort: %s' % (identifier, dir_port))
+      raise ValueError(f'{identifier} has an invalid DirPort: {dir_port}')
     elif not tor_tools.is_valid_fingerprint(fingerprint):
-      raise ValueError('%s has an invalid fingerprint: %s' % (identifier, fingerprint))
+      raise ValueError(f'{identifier} has an invalid fingerprint: {fingerprint}')
     elif nickname and not tor_tools.is_valid_nickname(nickname):
-      raise ValueError('%s has an invalid nickname: %s' % (fingerprint, nickname))
+      raise ValueError(f'{fingerprint} has an invalid nickname: {nickname}')
 
     if orport_v6:
       if not isinstance(orport_v6, tuple) or len(orport_v6) != 2:
-        raise ValueError('%s orport_v6 should be a two value tuple: %s' % (identifier, str(orport_v6)))
+        raise ValueError(
+            f'{identifier} orport_v6 should be a two value tuple: {orport_v6}')
       elif not connection.is_valid_ipv6_address(orport_v6[0]):
-        raise ValueError('%s has an invalid IPv6 address: %s' % (identifier, orport_v6[0]))
+        raise ValueError(f'{identifier} has an invalid IPv6 address: {orport_v6[0]}')
       elif not connection.is_valid_port(orport_v6[1]):
-        raise ValueError('%s has an invalid IPv6 port: %s' % (identifier, orport_v6[1]))
+        raise ValueError(f'{identifier} has an invalid IPv6 port: {orport_v6[1]}')
 
     self.address = address
     self.or_port = int(or_port)
@@ -240,8 +236,8 @@ class Authority(Directory):
     super(Authority, self).__init__(address, or_port, dir_port, fingerprint, nickname, orport_v6)
 
     if v3ident and not tor_tools.is_valid_fingerprint(v3ident):
-      identifier = '%s (%s)' % (fingerprint, nickname) if nickname else fingerprint
-      raise ValueError('%s has an invalid v3ident: %s' % (identifier, v3ident))
+      identifier = f'{fingerprint} ({nickname})' if nickname else fingerprint
+      raise ValueError(f'{identifier} has an invalid v3ident: {v3ident}')
 
     self.v3ident = v3ident
 
@@ -258,7 +254,7 @@ class Authority(Directory):
         raise OSError('no content')
     except:
       exc, stacktrace = sys.exc_info()[1:3]
-      message = "Unable to download tor's directory authorities from %s: %s" % (GITWEB_AUTHORITY_URL, exc)
+      message = f"Unable to download tor's directory authorities from {GITWEB_AUTHORITY_URL}: {exc}"
       raise stem.DownloadFailed(GITWEB_AUTHORITY_URL, exc, stacktrace, message)
 
     # Entries look like...
@@ -366,18 +362,18 @@ class Fallback(Directory):
 
     results = {}
 
-    for fingerprint in set([key.split('.')[0] for key in conf.keys()]):
+    for fingerprint in {key.split('.')[0] for key in conf.keys()}:
       if fingerprint in ('tor_commit', 'stem_commit', 'header'):
         continue
 
       attr = {}
 
       for attr_name in ('address', 'or_port', 'dir_port', 'nickname', 'has_extrainfo', 'orport6_address', 'orport6_port'):
-        key = '%s.%s' % (fingerprint, attr_name)
+        key = f'{fingerprint}.{attr_name}'
         attr[attr_name] = conf.get(key)
 
         if not attr[attr_name] and attr_name not in ('nickname', 'has_extrainfo', 'orport6_address', 'orport6_port', 'dir_port'):
-          raise OSError("'%s' is missing from %s" % (key, FALLBACK_CACHE_PATH))
+          raise OSError(f"'{key}' is missing from {FALLBACK_CACHE_PATH}")
 
       if attr['orport6_address'] and attr['orport6_port']:
         orport_v6 = (attr['orport6_address'], int(attr['orport6_port']))
@@ -406,7 +402,7 @@ class Fallback(Directory):
         raise OSError('no content')
     except:
       exc, stacktrace = sys.exc_info()[1:3]
-      message = "Unable to download tor's fallback directories from %s: %s" % (GITLAB_FALLBACK_URL, exc)
+      message = f"Unable to download tor's fallback directories from {GITLAB_FALLBACK_URL}: {exc}"
       raise stem.DownloadFailed(GITLAB_FALLBACK_URL, exc, stacktrace, message)
 
     # process header
@@ -422,23 +418,25 @@ class Fallback(Directory):
     # header metadata
 
     if lines[0] != FALLBACK_TYPE_FIELD:
-      raise OSError('%s does not have a type field indicating it is fallback directory metadata' % GITLAB_FALLBACK_URL)
+      raise OSError(
+          f'{GITLAB_FALLBACK_URL} does not have a type field indicating it is fallback directory metadata'
+      )
 
 
     header = {}
 
     for line in Fallback._pop_header(lines):
-      mapping = FALLBACK_MAPPING.match(line)
-
-      if mapping:
+      if mapping := FALLBACK_MAPPING.match(line):
         header[mapping.group(1)] = mapping.group(2)
       else:
-        raise OSError('Malformed fallback directory header line: %s' % line)
+        raise OSError(f'Malformed fallback directory header line: {line}')
     # skip the generation timestamp
-    if len(lines) >= 2 and FALLBACK_GENERATED.fullmatch(os.linesep.join(lines[0:2])):
-        lines = lines[2:]
+    if len(lines) >= 2 and FALLBACK_GENERATED.fullmatch(
+        os.linesep.join(lines[:2])):
+      lines = lines[2:]
     else:
-        raise OSError('Malformed header: %s' % os.linesep.join(lines[0:min(len(lines),2)]))
+      raise OSError(
+          f'Malformed header: {os.linesep.join(lines[:min(len(lines), 2)])}')
 
     # process entries
 
@@ -525,20 +523,23 @@ class Fallback(Directory):
     conf.set('stem_commit', stem_commit)
 
     for k, v in headers.items():
-      conf.set('header.%s' % k, v)
+      conf.set(f'header.{k}', v)
 
     for directory in sorted(fallbacks.values(), key = lambda x: x.fingerprint):
       fingerprint = directory.fingerprint
-      conf.set('%s.address' % fingerprint, directory.address)
-      conf.set('%s.or_port' % fingerprint, str(directory.or_port))
+      conf.set(f'{fingerprint}.address', directory.address)
+      conf.set(f'{fingerprint}.or_port', str(directory.or_port))
       if directory.dir_port:
-        conf.set('%s.dir_port' % fingerprint, str(directory.dir_port))
-      conf.set('%s.nickname' % fingerprint, directory.nickname)
-      conf.set('%s.has_extrainfo' % fingerprint, 'true' if directory.has_extrainfo else 'false')
+        conf.set(f'{fingerprint}.dir_port', str(directory.dir_port))
+      conf.set(f'{fingerprint}.nickname', directory.nickname)
+      conf.set(
+          f'{fingerprint}.has_extrainfo',
+          'true' if directory.has_extrainfo else 'false',
+      )
 
       if directory.orport_v6:
-        conf.set('%s.orport6_address' % fingerprint, str(directory.orport_v6[0]))
-        conf.set('%s.orport6_port' % fingerprint, str(directory.orport_v6[1]))
+        conf.set(f'{fingerprint}.orport6_address', str(directory.orport_v6[0]))
+        conf.set(f'{fingerprint}.orport6_port', str(directory.orport_v6[1]))
 
     conf.save(path)
 
@@ -567,18 +568,18 @@ def _fallback_directory_differences(previous_directories: Mapping[str, 'stem.dir
     orport_v6 = '%s:%s' % directory.orport_v6 if directory.orport_v6 else '[none]'
 
     lines += [
-      '* Added %s as a new fallback directory:' % directory.fingerprint,
-      '  address: %s' % directory.address,
-      '  or_port: %s' % directory.or_port,
-      '  dir_port: %s' % directory.dir_port,
-      '  nickname: %s' % directory.nickname,
-      '  has_extrainfo: %s' % directory.has_extrainfo,
-      '  orport_v6: %s' % orport_v6,
-      '',
+        f'* Added {directory.fingerprint} as a new fallback directory:',
+        f'  address: {directory.address}',
+        f'  or_port: {directory.or_port}',
+        f'  dir_port: {directory.dir_port}',
+        f'  nickname: {directory.nickname}',
+        f'  has_extrainfo: {directory.has_extrainfo}',
+        f'  orport_v6: {orport_v6}',
+        '',
     ]
 
   for fp in removed_fp:
-    lines.append('* Removed %s as a fallback directory' % fp)
+    lines.append(f'* Removed {fp} as a fallback directory')
 
   for fp in new_directories:
     if fp in added_fp or fp in removed_fp:
@@ -593,7 +594,7 @@ def _fallback_directory_differences(previous_directories: Mapping[str, 'stem.dir
         new_attr = getattr(new_directory, attr)
 
         if old_attr != new_attr:
-          lines.append('* Changed the %s of %s from %s to %s' % (attr, fp, old_attr, new_attr))
+          lines.append(f'* Changed the {attr} of {fp} from {old_attr} to {new_attr}')
 
   return '\n'.join(lines)
 

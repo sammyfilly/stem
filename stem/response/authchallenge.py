@@ -32,25 +32,23 @@ class AuthChallengeResponse(stem.response.ControlMessage):
     line = self[0]
 
     # sanity check that we're a AUTHCHALLENGE response
-    if not line.pop() == 'AUTHCHALLENGE':
-      raise stem.ProtocolError('Message is not an AUTHCHALLENGE response (%s)' % self)
+    if line.pop() != 'AUTHCHALLENGE':
+      raise stem.ProtocolError(f'Message is not an AUTHCHALLENGE response ({self})')
 
-    if line.is_next_mapping('SERVERHASH'):
-      value = line.pop_mapping()[1]
+    if not line.is_next_mapping('SERVERHASH'):
+      raise stem.ProtocolError(f'Missing SERVERHASH mapping: {line}')
 
-      if not stem.util.tor_tools.is_hex_digits(value, 64):
-        raise stem.ProtocolError('SERVERHASH has an invalid value: %s' % value)
+    value = line.pop_mapping()[1]
 
-      self.server_hash = binascii.unhexlify(stem.util.str_tools._to_bytes(value))
-    else:
-      raise stem.ProtocolError('Missing SERVERHASH mapping: %s' % line)
+    if not stem.util.tor_tools.is_hex_digits(value, 64):
+      raise stem.ProtocolError(f'SERVERHASH has an invalid value: {value}')
 
-    if line.is_next_mapping('SERVERNONCE'):
-      value = line.pop_mapping()[1]
+    self.server_hash = binascii.unhexlify(stem.util.str_tools._to_bytes(value))
+    if not line.is_next_mapping('SERVERNONCE'):
+      raise stem.ProtocolError(f'Missing SERVERNONCE mapping: {line}')
+    value = line.pop_mapping()[1]
 
-      if not stem.util.tor_tools.is_hex_digits(value, 64):
-        raise stem.ProtocolError('SERVERNONCE has an invalid value: %s' % value)
+    if not stem.util.tor_tools.is_hex_digits(value, 64):
+      raise stem.ProtocolError(f'SERVERNONCE has an invalid value: {value}')
 
-      self.server_nonce = binascii.unhexlify(stem.util.str_tools._to_bytes(value))
-    else:
-      raise stem.ProtocolError('Missing SERVERNONCE mapping: %s' % line)
+    self.server_nonce = binascii.unhexlify(stem.util.str_tools._to_bytes(value))

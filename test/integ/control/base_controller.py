@@ -155,7 +155,7 @@ class TestBaseController(unittest.TestCase):
 
       for i in range(10):
         fingerprint = hashlib.sha1(os.urandom(20)).hexdigest().upper()
-        await controller.msg('SETCONF NodeFamily=%s' % fingerprint)
+        await controller.msg(f'SETCONF NodeFamily={fingerprint}')
         await test.runner.exercise_controller(self, controller)
 
       await controller.msg('SETEVENTS')

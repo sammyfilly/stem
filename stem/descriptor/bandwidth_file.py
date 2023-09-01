@@ -196,22 +196,19 @@ def _parse_header(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE)
   while True:
     line = content.readline().strip()
 
-    if not line:
+    if (not line or line in (HEADER_DIV, HEADER_DIV_ALT)
+        or not header and b'node_id=' in line):
       break  # end of the content
-    elif line in (HEADER_DIV, HEADER_DIV_ALT):
-      break  # end of header
-    elif not header and b'node_id=' in line:
-      break  # version 1.0 doesn't have any headers
+    if b'=' not in line:
+      raise ValueError(
+          f"Header expected to be key=value pairs, but had '{stem.util.str_tools._to_unicode(line)}'"
+      )
 
-    if b'=' in line:
-      key, value = stem.util.str_tools._to_unicode(line).split('=', 1)
-      header[key] = value
+    key, value = stem.util.str_tools._to_unicode(line).split('=', 1)
+    header[key] = value
 
-      if key == 'version':
-        version_index = index
-    else:
-      raise ValueError("Header expected to be key=value pairs, but had '%s'" % stem.util.str_tools._to_unicode(line))
-
+    if key == 'version':
+      version_index = index
     index += 1
 
   descriptor.header = header
@@ -235,7 +232,9 @@ def _parse_timestamp(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TY
   if first_line.isdigit():
     descriptor.timestamp = datetime.datetime.utcfromtimestamp(int(first_line))
   else:
-    raise ValueError("First line should be a unix timestamp, but was '%s'" % stem.util.str_tools._to_unicode(first_line))
+    raise ValueError(
+        f"First line should be a unix timestamp, but was '{stem.util.str_tools._to_unicode(first_line)}'"
+    )
 
 
 def _parse_body(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -> None:
@@ -258,9 +257,13 @@ def _parse_body(descriptor: 'stem.descriptor.Descriptor', entries: ENTRY_TYPE) -
     fingerprint = attr.get('node_id', '').lstrip('$')  # bwauths prefix fingerprints with '$'
 
     if not fingerprint:
-      raise ValueError("Every meaurement must include 'node_id': %s" % stem.util.str_tools._to_unicode(line))
+      raise ValueError(
+          f"Every meaurement must include 'node_id': {stem.util.str_tools._to_unicode(line)}"
+      )
     elif fingerprint in measurements:
-      raise ValueError('Relay %s is listed multiple times. It should only be present once.' % fingerprint)
+      raise ValueError(
+          f'Relay {fingerprint} is listed multiple times. It should only be present once.'
+      )
 
     measurements[fingerprint] = attr
 
@@ -356,16 +359,14 @@ class BandwidthFile(Descriptor):
       # ensure 'version' is the second header
 
       if 'version' not in exclude:
-        lines.append(stem.util.str_tools._to_bytes('version=%s' % header.pop('version')))
+        lines.append(stem.util.str_tools._to_bytes(f"version={header.pop('version')}"))
 
-      for k, v in header.items():
-        lines.append(stem.util.str_tools._to_bytes('%s=%s' % (k, v)))
-
+      lines.extend(
+          stem.util.str_tools._to_bytes(f'{k}={v}') for k, v in header.items())
       lines.append(HEADER_DIV)
 
-    for measurement in content:
-      lines.append(stem.util.str_tools._to_bytes(measurement))
-
+    lines.extend(
+        stem.util.str_tools._to_bytes(measurement) for measurement in content)
     return b'\n'.join(lines)
 
   def __init__(self, raw_content: bytes, validate: bool = False) -> None:

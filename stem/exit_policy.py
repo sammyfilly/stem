@@ -104,7 +104,7 @@ def _flag_private_rules(rules: Sequence['ExitPolicyRule']) -> None:
     if i + len(PRIVATE_ADDRESSES) > len(rules):
       break
 
-    rule_str = '%s/%s' % (rule.address, rule.get_masked_bits())
+    rule_str = f'{rule.address}/{rule.get_masked_bits()}'
 
     if rule_str == PRIVATE_ADDRESSES[0]:
       matches.append(i)
@@ -127,7 +127,7 @@ def _flag_private_rules(rules: Sequence['ExitPolicyRule']) -> None:
     is_accept = rule_set[0].is_accept
 
     for i, rule in enumerate(rule_set):
-      rule_str = '%s/%s' % (rule.address, rule.get_masked_bits())
+      rule_str = f'{rule.address}/{rule.get_masked_bits()}'
 
       if rule_str != PRIVATE_ADDRESSES[i] or rule.min_port != min_port or rule.max_port != max_port or rule.is_accept != is_accept:
         is_match = False
@@ -171,19 +171,11 @@ class ExitPolicy(object):
 
     for rule in rules:
       if not isinstance(rule, (bytes, str)) and not isinstance(rule, ExitPolicyRule):
-        raise TypeError('Exit policy rules can only contain strings or ExitPolicyRules, got a %s (%s)' % (type(rule), rules))
+        raise TypeError(
+            f'Exit policy rules can only contain strings or ExitPolicyRules, got a {type(rule)} ({rules})'
+        )
 
-    # Unparsed representation of the rules we were constructed with. Our
-    # _get_rules() method consumes this to provide ExitPolicyRule instances.
-    # This is lazily evaluated so we don't need to actually parse the exit
-    # policy if it's never used.
-
-    is_all_str = True
-
-    for rule in rules:
-      if not isinstance(rule, (bytes, str)):
-        is_all_str = False
-
+    is_all_str = all(isinstance(rule, (bytes, str)) for rule in rules)
     if rules and is_all_str:
       byte_rules = [stem.util.str_tools._to_bytes(r) for r in rules]  # type: ignore
       self._input_rules = zlib.compress(b','.join(byte_rules))
@@ -218,11 +210,11 @@ class ExitPolicy(object):
     if not self.is_exiting_allowed():
       return False
 
-    for rule in self._get_rules():
-      if rule.is_match(address, port, strict):
-        return rule.is_accept
-
-    return self._is_allowed_default
+    return next(
+        (rule.is_accept
+         for rule in self._get_rules() if rule.is_match(address, port, strict)),
+        self._is_allowed_default,
+    )
 
   @functools.lru_cache()
   def is_exiting_allowed(self) -> bool:
@@ -267,14 +259,11 @@ class ExitPolicy(object):
     :returns: **str** with a concise summary for our policy
     """
 
-    # determines if we're a white-list or blacklist
-    is_whitelist = not self._is_allowed_default
-
-    for rule in self._get_rules():
-      if rule.is_address_wildcard() and rule.is_port_wildcard():
-        is_whitelist = not rule.is_accept
-        break
-
+    is_whitelist = next(
+        (not rule.is_accept for rule in self._get_rules()
+         if rule.is_address_wildcard() and rule.is_port_wildcard()),
+        not self._is_allowed_default,
+    )
     # Iterates over the policies and adds the the ports we'll return (ie,
     # allows if a white-list and rejects if a blacklist). Regardless of a
     # port's allow/reject policy, all further entries with that port are
@@ -338,11 +327,7 @@ class ExitPolicy(object):
       keyword, **False** otherwise
     """
 
-    for rule in self._get_rules():
-      if rule.is_private():
-        return True
-
-    return False
+    return any(rule.is_private() for rule in self._get_rules())
 
   def strip_private(self) -> 'ExitPolicy':
     """
@@ -364,11 +349,7 @@ class ExitPolicy(object):
     :returns: **True** if we have the default policy suffix, **False** otherwise
     """
 
-    for rule in self._get_rules():
-      if rule.is_default():
-        return True
-
-    return False
+    return any(rule.is_default() for rule in self._get_rules())
 
   def strip_default(self) -> 'ExitPolicy':
     """
@@ -409,7 +390,9 @@ class ExitPolicy(object):
         elif isinstance(rule_val, stem.exit_policy.ExitPolicyRule):
           rule = rule_val
         else:
-          raise TypeError('BUG: unexpected type within decompressed policy: %s (%s)' % (stem.util.str_tools._to_unicode(rule_val), type(rule_val).__name__))
+          raise TypeError(
+              f'BUG: unexpected type within decompressed policy: {stem.util.str_tools._to_unicode(rule_val)} ({type(rule_val).__name__})'
+          )
 
         if rule.is_accept:
           is_all_reject = False
@@ -452,8 +435,7 @@ class ExitPolicy(object):
     return len(self._get_rules())
 
   def __iter__(self) -> Iterator['stem.exit_policy.ExitPolicyRule']:
-    for rule in self._get_rules():
-      yield rule
+    yield from self._get_rules()
 
   def __str__(self) -> str:
     if self._policy_str is None:
@@ -523,12 +505,16 @@ class MicroExitPolicy(ExitPolicy):
     elif policy.startswith('reject'):
       self.is_accept = False
     else:
-      raise ValueError("A microdescriptor exit policy must start with either 'accept' or 'reject': %s" % policy)
+      raise ValueError(
+          f"A microdescriptor exit policy must start with either 'accept' or 'reject': {policy}"
+      )
 
     policy = policy[6:]
 
     if not policy.startswith(' '):
-      raise ValueError('A microdescriptor exit policy should have a space separating accept/reject from its port list: %s' % policy_str)
+      raise ValueError(
+          f'A microdescriptor exit policy should have a space separating accept/reject from its port list: {policy_str}'
+      )
 
     policy = policy.lstrip()
 
@@ -542,8 +528,8 @@ class MicroExitPolicy(ExitPolicy):
         min_port = max_port = port_entry
 
       if not stem.util.connection.is_valid_port(min_port) or \
-         not stem.util.connection.is_valid_port(max_port):
-        raise ValueError("'%s' is an invalid port range" % port_entry)
+           not stem.util.connection.is_valid_port(max_port):
+        raise ValueError(f"'{port_entry}' is an invalid port range")
 
       rules.append(MicroExitPolicyRule(self.is_accept, int(min_port), int(max_port)))
 
@@ -608,15 +594,20 @@ class ExitPolicyRule(object):
     elif rule.startswith('accept') or rule.startswith('reject'):
       exitpattern = rule[6:]
     else:
-      raise ValueError("An exit policy must start with either 'accept[6]' or 'reject[6]': %s" % rule)
+      raise ValueError(
+          f"An exit policy must start with either 'accept[6]' or 'reject[6]': {rule}"
+      )
 
     if not exitpattern.startswith(' '):
-      raise ValueError('An exit policy should have a space separating its accept/reject from the exit pattern: %s' % rule)
+      raise ValueError(
+          f'An exit policy should have a space separating its accept/reject from the exit pattern: {rule}'
+      )
 
     exitpattern = exitpattern.lstrip()
 
     if ':' not in exitpattern or ']' in exitpattern.rsplit(':', 1)[1]:
-      raise ValueError("An exitpattern must be of the form 'addrspec:portspec': %s" % rule)
+      raise ValueError(
+          f"An exitpattern must be of the form 'addrspec:portspec': {rule}")
 
     self.address = None  # type: Optional[str]
     self._address_type = None  # type: Optional[stem.exit_policy.AddressType]
@@ -702,10 +693,10 @@ class ExitPolicyRule(object):
 
         address = address.lstrip('[').rstrip(']')
       else:
-        raise ValueError("'%s' isn't a valid IPv4 or IPv6 address" % address)
+        raise ValueError(f"'{address}' isn't a valid IPv4 or IPv6 address")
 
     if port is not None and not stem.util.connection.is_valid_port(port):
-      raise ValueError("'%s' isn't a valid port" % port)
+      raise ValueError(f"'{port}' isn't a valid port")
 
     # If we're not matching against an address or port but the rule has one
     # then we're a fuzzy match. When that happens...
@@ -735,10 +726,7 @@ class ExitPolicyRule(object):
       elif port < self.min_port or port > self.max_port:
         return False
 
-    if fuzzy_match:
-      return strict != self.is_accept
-    else:
-      return True
+    return strict != self.is_accept if fuzzy_match else True
 
   def get_address_type(self) -> AddressType:
     """
@@ -831,7 +819,7 @@ class ExitPolicyRule(object):
       if address_type == AddressType.IPv4:
         label += self.address
       else:
-        label += '[%s]' % self.address
+        label += f'[{self.address}]'
 
       # Including our mask label as follows...
       # - exclude our mask if it doesn't do anything
@@ -839,12 +827,12 @@ class ExitPolicyRule(object):
       # - use the mask itself otherwise
 
       if (address_type == AddressType.IPv4 and self._masked_bits == 32) or \
-         (address_type == AddressType.IPv6 and self._masked_bits == 128):
+           (address_type == AddressType.IPv6 and self._masked_bits == 128):
         label += ':'
       elif self._masked_bits is not None:
         label += '/%i:' % self._masked_bits
       else:
-        label += '/%s:' % self.get_mask()
+        label += f'/{self.get_mask()}:'
 
     if self.is_port_wildcard():
       label += '*'
@@ -915,9 +903,9 @@ class ExitPolicyRule(object):
         if self._masked_bits < 0 or self._masked_bits > 32:
           raise ValueError('IPv4 masks must be in the range of 0-32 bits')
       else:
-        raise ValueError("The '%s' isn't a mask nor number of bits: %s" % (addr_extra, rule))
+        raise ValueError(f"The '{addr_extra}' isn't a mask nor number of bits: {rule}")
     elif self.address.startswith('[') and self.address.endswith(']') and \
-      stem.util.connection.is_valid_ipv6_address(self.address[1:-1]):
+        stem.util.connection.is_valid_ipv6_address(self.address[1:-1]):
       # ip6spec ::= ip6 | ip6 "/" num_ip6_bits
       # ip6 ::= an IPv6 address, surrounded by square brackets.
       # num_ip6_bits ::= an integer between 0 and 128
@@ -934,9 +922,10 @@ class ExitPolicyRule(object):
         if self._masked_bits < 0 or self._masked_bits > 128:
           raise ValueError('IPv6 masks must be in the range of 0-128 bits')
       else:
-        raise ValueError("The '%s' isn't a number of bits: %s" % (addr_extra, rule))
+        raise ValueError(f"The '{addr_extra}' isn't a number of bits: {rule}")
     else:
-      raise ValueError("'%s' isn't a wildcard, IPv4, or IPv6 address: %s" % (addrspec, rule))
+      raise ValueError(
+          f"'{addrspec}' isn't a wildcard, IPv4, or IPv6 address: {rule}")
 
   def _apply_portspec(self, rule: str, portspec: str) -> None:
     # Parses the portspec...
@@ -953,7 +942,7 @@ class ExitPolicyRule(object):
       if stem.util.connection.is_valid_port(portspec, allow_zero = True):
         self.min_port = self.max_port = int(portspec)
       else:
-        raise ValueError("'%s' isn't within a valid port range: %s" % (portspec, rule))
+        raise ValueError(f"'{portspec}' isn't within a valid port range: {rule}")
     elif '-' in portspec:
       # provided with a port range
       port_comp = portspec.split('-', 1)
@@ -963,11 +952,13 @@ class ExitPolicyRule(object):
         self.max_port = int(port_comp[1])
 
         if self.min_port > self.max_port:
-          raise ValueError("Port range has a lower bound that's greater than its upper bound: %s" % rule)
+          raise ValueError(
+              f"Port range has a lower bound that's greater than its upper bound: {rule}"
+          )
       else:
-        raise ValueError('Malformed port range: %s' % rule)
+        raise ValueError(f'Malformed port range: {rule}')
     else:
-      raise ValueError("Port value isn't a wildcard, integer, or range: %s" % rule)
+      raise ValueError(f"Port value isn't a wildcard, integer, or range: {rule}")
 
   def __hash__(self) -> int:
     if self._hash is None:
@@ -1024,16 +1015,17 @@ class MicroExitPolicyRule(ExitPolicyRule):
     return not self == other
 
 
-DEFAULT_POLICY_RULES = tuple([ExitPolicyRule(rule) for rule in (
-  'reject *:25',
-  'reject *:119',
-  'reject *:135-139',
-  'reject *:445',
-  'reject *:563',
-  'reject *:1214',
-  'reject *:4661-4666',
-  'reject *:6346-6429',
-  'reject *:6699',
-  'reject *:6881-6999',
-  'accept *:*',
-)])
+DEFAULT_POLICY_RULES = tuple(
+    ExitPolicyRule(rule) for rule in (
+        'reject *:25',
+        'reject *:119',
+        'reject *:135-139',
+        'reject *:445',
+        'reject *:563',
+        'reject *:1214',
+        'reject *:4661-4666',
+        'reject *:6346-6429',
+        'reject *:6699',
+        'reject *:6881-6999',
+        'accept *:*',
+    ))

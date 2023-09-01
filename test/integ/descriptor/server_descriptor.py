@@ -35,7 +35,7 @@ class TestServerDescriptor(unittest.TestCase):
         # the following attributes should be deprecated, and not appear in the wild
 
         if desc.read_history_end or desc.write_history_end or desc.eventdns or desc.socks_port:
-          raise AssertionError('deprecated attribute appeared on: %s' % desc)
+          raise AssertionError(f'deprecated attribute appeared on: {desc}')
 
         for line in desc.get_unrecognized_lines():
           test.register_new_capability('Server Descriptor Line', line)

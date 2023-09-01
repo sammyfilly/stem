@@ -91,7 +91,7 @@ class Relay(object):
     relay_addr = Address(address)
 
     if not stem.util.connection.is_valid_port(port):
-      raise ValueError("'%s' isn't a valid port" % port)
+      raise ValueError(f"'{port}' isn't a valid port")
     elif not link_protocols:
       raise ValueError("Connection can't be established without a link protocol.")
 

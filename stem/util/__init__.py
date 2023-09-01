@@ -47,14 +47,7 @@ HASH_TYPES = True
 
 
 def _hash_value(val: Any) -> int:
-  if not HASH_TYPES:
-    my_hash = 0
-  else:
-    # Hashing common builtins (ints, bools, etc) provide consistant values but
-    # many others vary their value on interpreter invokation.
-
-    my_hash = hash(str(type(val)))
-
+  my_hash = 0 if not HASH_TYPES else hash(str(type(val)))
   if isinstance(val, (tuple, list)):
     for v in val:
       my_hash = (my_hash * 1024) + hash(v)
@@ -109,7 +102,9 @@ def _pubkey_bytes(key: Union['cryptography.hazmat.primitives.asymmetric.ed25519.
       format = serialization.PublicFormat.Raw,
     )
   else:
-    raise ValueError('Key must be a string or cryptographic public/private key (was %s)' % type(key).__name__)
+    raise ValueError(
+        f'Key must be a string or cryptographic public/private key (was {type(key).__name__})'
+    )
 
 
 def _hash_attr(obj: Any, *attributes: str, **kwargs: Any) -> int:

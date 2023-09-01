@@ -97,15 +97,17 @@ def launch_tor(tor_cmd: str = 'tor', args: Optional[Sequence[str]] = None, torrc
     # got a path (either relative or absolute), check what it leads to
 
     if os.path.isdir(tor_cmd):
-      raise OSError("'%s' is a directory, not the tor executable" % tor_cmd)
+      raise OSError(f"'{tor_cmd}' is a directory, not the tor executable")
     elif not os.path.isfile(tor_cmd):
-      raise OSError("'%s' doesn't exist" % tor_cmd)
+      raise OSError(f"'{tor_cmd}' doesn't exist")
   elif not stem.util.system.is_available(tor_cmd):
-    raise OSError("'%s' isn't available on your system. Maybe it's not in your PATH?" % tor_cmd)
+    raise OSError(
+        f"'{tor_cmd}' isn't available on your system. Maybe it's not in your PATH?"
+    )
 
   # double check that we have a torrc to work with
   if torrc_path not in (None, NO_TORRC) and not os.path.exists(torrc_path):
-    raise OSError("torrc doesn't exist (%s)" % torrc_path)
+    raise OSError(f"torrc doesn't exist ({torrc_path})")
 
   # starts a tor subprocess, raising an OSError if it fails
   runtime_args, temp_file = [tor_cmd], None
@@ -153,7 +155,7 @@ def launch_tor(tor_cmd: str = 'tor', args: Optional[Sequence[str]] = None, torrc
       # this will provide empty results if the process is terminated
 
       if not init_line:
-        raise OSError('Process terminated: %s' % last_problem)
+        raise OSError(f'Process terminated: {last_problem}')
 
       # provide the caller with the initialization message if they want it
 
@@ -252,13 +254,7 @@ def launch_tor_with_config(config: Dict[str, Union[str, Sequence[str]]], tor_cmd
     if isinstance(config['Log'], str):
       config['Log'] = [config['Log']]
 
-    has_stdout = False
-
-    for log_config in config['Log']:
-      if log_config in stdout_options:
-        has_stdout = True
-        break
-
+    has_stdout = any(log_config in stdout_options for log_config in config['Log'])
     if not has_stdout:
       config['Log'] = list(config['Log']) + ['NOTICE stdout']
 

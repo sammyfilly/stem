@@ -71,9 +71,18 @@ class TestNetworkStatusDocument(unittest.TestCase):
     parsed.
     """
 
-    expected_flags = set(
-      ['Authority', 'Exit', 'Fast', 'Guard', 'HSDir',
-       'Running', 'Stable', 'V2Dir', 'Valid', 'NoEdConsensus'])
+    expected_flags = {
+        'Authority',
+        'Exit',
+        'Fast',
+        'Guard',
+        'HSDir',
+        'Running',
+        'Stable',
+        'V2Dir',
+        'Valid',
+        'NoEdConsensus',
+    }
 
     expected_bandwidth_weights = {
       'Web': 10000, 'Wdb': 10000, 'Weg': 3333, 'Wee': 10000, 'Wed': 3333,
@@ -127,7 +136,19 @@ ci356fosgLiM1sVqCUkNdA==
       self.assertEqual('127.0.0.1', router.address)
       self.assertEqual(5002, router.or_port)
       self.assertEqual(7002, router.dir_port)
-      self.assertEqual(set(['Exit', 'Fast', 'Running', 'Valid', 'V2Dir', 'Guard', 'HSDir', 'Stable']), set(router.flags))
+      self.assertEqual(
+          {
+              'Exit',
+              'Fast',
+              'Running',
+              'Valid',
+              'V2Dir',
+              'Guard',
+              'HSDir',
+              'Stable',
+          },
+          set(router.flags),
+      )
 
       authority = document.directory_authorities[0]
       self.assertEqual(2, len(document.directory_authorities))
@@ -173,9 +194,18 @@ ci356fosgLiM1sVqCUkNdA==
     Checks that vote documents are properly parsed.
     """
 
-    expected_flags = set(
-      ['Authority', 'BadExit', 'Exit', 'Fast', 'Guard', 'HSDir',
-       'Running', 'Stable', 'V2Dir', 'Valid'])
+    expected_flags = {
+        'Authority',
+        'BadExit',
+        'Exit',
+        'Fast',
+        'Guard',
+        'HSDir',
+        'Running',
+        'Stable',
+        'V2Dir',
+        'Valid',
+    }
 
     expected_identity_key = """-----BEGIN RSA PUBLIC KEY-----
 MIIBigKCAYEA6uSmsoxj2MiJ3qyZq0qYXlRoG8o82SNqg+22m+t1c7MlQOZWPJYn
@@ -1022,7 +1052,7 @@ DnN5aFtYKiTc19qIC7Nmo+afPdDEf0MlJvEOP5EWl3w=
       'Wbe=+7',
     )
 
-    base_weight_entry = ' '.join(['%s=5' % e for e in BANDWIDTH_WEIGHT_ENTRIES])
+    base_weight_entry = ' '.join([f'{e}=5' for e in BANDWIDTH_WEIGHT_ENTRIES])
 
     for test_value in test_values:
       weight_entry = base_weight_entry.replace('Wbe=5', test_value)
@@ -1037,7 +1067,7 @@ DnN5aFtYKiTc19qIC7Nmo+afPdDEf0MlJvEOP5EWl3w=
     Check that the 'bandwidth-wights' line is rejected if out of order.
     """
 
-    weight_entry = ' '.join(['%s=5' % e for e in reversed(BANDWIDTH_WEIGHT_ENTRIES)])
+    weight_entry = ' '.join([f'{e}=5' for e in reversed(BANDWIDTH_WEIGHT_ENTRIES)])
 
     content = NetworkStatusDocumentV3.content({'bandwidth-weights': weight_entry})
     self.assertRaises(ValueError, NetworkStatusDocumentV3, content, True)
@@ -1050,7 +1080,7 @@ DnN5aFtYKiTc19qIC7Nmo+afPdDEf0MlJvEOP5EWl3w=
     Tries adding a 'bandwidth-wights' line to a vote.
     """
 
-    weight_entry = ' '.join(['%s=5' % e for e in BANDWIDTH_WEIGHT_ENTRIES])
+    weight_entry = ' '.join([f'{e}=5' for e in BANDWIDTH_WEIGHT_ENTRIES])
     expected = dict([(e, 5) for e in BANDWIDTH_WEIGHT_ENTRIES])
 
     content = NetworkStatusDocumentV3.content({'vote-status': 'vote', 'bandwidth-weights': weight_entry})
@@ -1096,9 +1126,9 @@ DnN5aFtYKiTc19qIC7Nmo+afPdDEf0MlJvEOP5EWl3w=
     for test_value in test_values:
       for test_attr in range(3):
         attrs = [
-          '14C131DFC5C6F93646BE72FA1401C02A8DF2E8B4',
-          'BF112F1C6D5543CFD0A32215ACABD4197B5279AD',
-          '-----BEGIN SIGNATURE-----%s-----END SIGNATURE-----' % CRYPTO_BLOB,
+            '14C131DFC5C6F93646BE72FA1401C02A8DF2E8B4',
+            'BF112F1C6D5543CFD0A32215ACABD4197B5279AD',
+            f'-----BEGIN SIGNATURE-----{CRYPTO_BLOB}-----END SIGNATURE-----',
         ]
 
         attrs[test_attr] = test_value
@@ -1192,21 +1222,16 @@ DnN5aFtYKiTc19qIC7Nmo+afPdDEf0MlJvEOP5EWl3w=
         vote_status = 'vote' if is_document_vote else 'consensus'
         content = NetworkStatusDocumentV3.content({'vote-status': vote_status}, authorities = (authority1, authority2))
 
-        if is_document_vote == is_authorities_vote:
-          if is_document_vote:
-            # votes can only have a single authority
+        if (is_document_vote == is_authorities_vote and is_document_vote
+            or is_document_vote != is_authorities_vote):
+          # votes can only have a single authority
 
-            self.assertRaises(ValueError, NetworkStatusDocumentV3, content, True)
-            document = NetworkStatusDocumentV3(content, validate = False)
-          else:
-            document = NetworkStatusDocumentV3(content)
-
-          self.assertEqual((authority1, authority2), document.directory_authorities)
-        else:
-          # authority votes in a consensus or consensus authorities in a vote
           self.assertRaises(ValueError, NetworkStatusDocumentV3, content, True)
           document = NetworkStatusDocumentV3(content, validate = False)
-          self.assertEqual((authority1, authority2), document.directory_authorities)
+        else:
+          document = NetworkStatusDocumentV3(content)
+
+        self.assertEqual((authority1, authority2), document.directory_authorities)
 
   def test_shared_randomness(self):
     """
